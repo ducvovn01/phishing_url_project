@@ -81,8 +81,10 @@ def extract_features(df: pd.DataFrame) -> pd.DataFrame:
 
     feats = pd.DataFrame(index=df.index)
     feats["url"] = urls
-    feats["label"] = df["label"]
-    feats["source"] = df["source"]
+    # Absent when scoring new URLs (see predict.py).
+    for col in ("label", "source"):
+        if col in df:
+            feats[col] = df[col]
     feats["domain"] = domain  # grouping key for splitting, not a model feature
 
     # Lexical counts / lengths. url_length is measured without the scheme:
