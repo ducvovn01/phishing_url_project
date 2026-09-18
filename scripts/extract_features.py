@@ -43,6 +43,13 @@ def split_url(url: str):
     return "", url
 
 
+def preprocess_url(url: str) -> str:
+    """URL text for models that read the raw string (train_char_ngram.py).
+    Drops the scheme and lowercases: both mostly record how each source
+    formatted its URLs - phiusiil rows never contain uppercase letters."""
+    return _PROTOCOL_RE.sub("", url.strip()).lower()
+
+
 def get_hostname(rest: str) -> str:
     return rest.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0].split("@")[-1]
 

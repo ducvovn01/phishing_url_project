@@ -25,8 +25,9 @@ class PhishingDetector:
                  threshold: float | None = None):
         bundle = joblib.load(model_path)
         self.model = bundle["model"]
-        self.feature_columns = bundle["feature_columns"]
-        self.tld_categories = bundle["tld_categories"]
+        # None for char_ngram, whose pipeline takes the raw URL strings.
+        self.feature_columns = bundle.get("feature_columns")
+        self.tld_categories = bundle.get("tld_categories")
         self.threshold = bundle["threshold"] if threshold is None else threshold
 
     def predict(self, urls: list[str]) -> pd.DataFrame:
@@ -34,8 +35,11 @@ class PhishingDetector:
         urls = [str(u).strip() for u in urls]
         if not urls:
             return pd.DataFrame(columns=["url", "phishing_probability", "is_phishing"])
-        feats = extract_features(pd.DataFrame({"url": urls}))
-        X = build_matrix(feats, self.feature_columns, self.tld_categories)
+        if self.feature_columns is None:
+            X = pd.Series(urls)
+        else:
+            feats = extract_features(pd.DataFrame({"url": urls}))
+            X = build_matrix(feats, self.feature_columns, self.tld_categories)
         proba = positive_proba(self.model, X)
         return pd.DataFrame({
             "url": urls,
@@ -48,7 +52,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Score URLs as phishing or legitimate.")
     parser.add_argument("urls", nargs="*", help="URLs to score")
     parser.add_argument("--file", type=Path, help="text file with one URL per line")
-    parser.add_argument("--model", choices=["lightgbm", "logreg"], default="lightgbm")
+    parser.add_argument("--model", choices=["lightgbm", "logreg", "char_ngram"], default="lightgbm")
     parser.add_argument("--threshold", type=float,
                         help="override the threshold saved with the model")
     args = parser.parse_args()

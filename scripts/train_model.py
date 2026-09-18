@@ -216,7 +216,7 @@ def fit_lightgbm(X: pd.DataFrame, y: pd.Series, params: dict) -> lgb.LGBMClassif
     return model
 
 
-def positive_proba(model, X: pd.DataFrame) -> np.ndarray:
+def positive_proba(model, X: pd.DataFrame | pd.Series) -> np.ndarray:
     # np.asarray: predict_proba is typed as possibly returning a sparse
     # matrix or list, which can't be column-sliced; ours is always an ndarray.
     return np.asarray(model.predict_proba(X))[:, 1]
