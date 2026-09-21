@@ -74,6 +74,17 @@ PROFILE_COLUMNS = ["url_length", "path_length", "query_length", "dot_count",
 NOISE = -1
 
 
+def numeric_feature_columns(df: pd.DataFrame) -> list:
+    return [c for c in df.columns
+            if c not in NON_FEATURE_COLUMNS + PROTOCOL_FEATURES + CATEGORICAL_FEATURES]
+
+
+def bundle_proba(bundle: dict, rows: pd.DataFrame) -> np.ndarray:
+    """Phishing probability for feature rows, from a models/{kmeans,hdbscan}.joblib bundle."""
+    X = bundle["preprocess"].transform(rows[bundle["feature_columns"]])
+    return cluster_to_proba(bundle["model"].predict(X), bundle["cluster_proba"], bundle["prior"])
+
+
 def build_preprocess() -> Pipeline:
     # Same scaling as the Logistic Regression in train_model.py: counts and
     # lengths are heavy-tailed, and both algorithms work on raw distances.
@@ -183,8 +194,7 @@ def main() -> None:
     # Whole table, so split_by_domain() reproduces train_model.py's split
     # exactly and the saved LightGBM can be scored on the same rows.
     df = pd.read_parquet(PROCESSED_DIR / "features.parquet")
-    feature_cols = [c for c in df.columns
-                    if c not in NON_FEATURE_COLUMNS + PROTOCOL_FEATURES + CATEGORICAL_FEATURES]
+    feature_cols = numeric_feature_columns(df)
     train, test = split_by_domain(df)
     del df
     y_train, y_test = train["label"].to_numpy(), test["label"].to_numpy()

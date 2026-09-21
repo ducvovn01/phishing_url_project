@@ -1,4 +1,4 @@
-# Score URLs with a model saved by train_model.py.
+# Score URLs with any saved model in models/ (see MODEL_NAMES).
 #
 # Features are built with extract_features.extract_features() and `tld` is
 # encoded with train_model.build_matrix() - the same code used at training
@@ -17,6 +17,9 @@ import pandas as pd
 from extract_features import extract_features
 from train_model import MODELS_DIR, build_matrix, positive_proba
 
+# Every models/<name>.joblib that PhishingDetector can load.
+MODEL_NAMES = ["lightgbm", "logreg", "char_ngram", "kmeans", "hdbscan", "autoencoder"]
+
 
 class PhishingDetector:
     """Wraps a models/*.joblib bundle. Load once, then call predict() per batch."""
@@ -24,11 +27,25 @@ class PhishingDetector:
     def __init__(self, model_path: Path = MODELS_DIR / "lightgbm.joblib",
                  threshold: float | None = None):
         bundle = joblib.load(model_path)
-        self.model = bundle["model"]
+        self.bundle = bundle
+        self.model = bundle.get("model")  # the autoencoder bundle stores weights instead
         # None for char_ngram, whose pipeline takes the raw URL strings.
         self.feature_columns = bundle.get("feature_columns")
         self.tld_categories = bundle.get("tld_categories")
         self.threshold = bundle["threshold"] if threshold is None else threshold
+
+    def _feature_proba(self, feats: pd.DataFrame):
+        # Clustering and autoencoder bundles carry their own preprocessing and
+        # probability mapping. Imported here so scoring with the other models
+        # doesn't pay for loading torch.
+        if "cluster_proba" in self.bundle:
+            from clustering_model import bundle_proba
+            return bundle_proba(self.bundle, feats)
+        if "state_dict" in self.bundle:
+            from autoencoder_model import bundle_proba
+            return bundle_proba(self.bundle, feats)
+        X = build_matrix(feats, self.feature_columns, self.tld_categories)
+        return positive_proba(self.model, X)
 
     def predict(self, urls: list[str]) -> pd.DataFrame:
         """Return one row per URL: url, phishing_probability, is_phishing."""
@@ -36,11 +53,9 @@ class PhishingDetector:
         if not urls:
             return pd.DataFrame(columns=["url", "phishing_probability", "is_phishing"])
         if self.feature_columns is None:
-            X = pd.Series(urls)
+            proba = positive_proba(self.model, pd.Series(urls))
         else:
-            feats = extract_features(pd.DataFrame({"url": urls}))
-            X = build_matrix(feats, self.feature_columns, self.tld_categories)
-        proba = positive_proba(self.model, X)
+            proba = self._feature_proba(extract_features(pd.DataFrame({"url": urls})))
         return pd.DataFrame({
             "url": urls,
             "phishing_probability": proba,
@@ -52,7 +67,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Score URLs as phishing or legitimate.")
     parser.add_argument("urls", nargs="*", help="URLs to score")
     parser.add_argument("--file", type=Path, help="text file with one URL per line")
-    parser.add_argument("--model", choices=["lightgbm", "logreg", "char_ngram"], default="lightgbm")
+    parser.add_argument("--model", choices=MODEL_NAMES, default="lightgbm")
     parser.add_argument("--threshold", type=float,
                         help="override the threshold saved with the model")
     args = parser.parse_args()

@@ -11,10 +11,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from predict import PhishingDetector
+from predict import MODEL_NAMES, PhishingDetector
 from train_model import MODELS_DIR, PROJECT_ROOT
 
-MODELS = ["lightgbm", "logreg", "char_ngram"]
+MODELS = MODEL_NAMES
 EXPECTED_IS_PHISHING = {"phishing": True, "legitimate": False}
 
 
