@@ -37,6 +37,7 @@ from train_model import (
     build_matrix,
     evaluate,
     log,
+    per_class_table,
     per_source_table,
     positive_proba,
     split_by_domain,
@@ -135,12 +136,15 @@ def main() -> None:
 
     results = pd.DataFrame({k: evaluate(test["label"], p) for k, p in probas.items()}).T
     by_source = per_source_table(test, ngram_proba)
-    cm = confusion_matrix(y_test, (ngram_proba >= THRESHOLD).astype(int))
+    by_class = per_class_table(test["label"], ngram_proba)
+    cm =confusion_matrix(y_test, (ngram_proba >= THRESHOLD).astype(int))
     ngrams = top_ngrams(pipeline, train["url"].sample(300_000, random_state=RANDOM_STATE))
     print()
     print(results.to_string(float_format="{:.4f}".format))
     print()
     print(by_source.to_string(float_format="{:.4f}".format))
+    print()
+    print(by_class.to_string(float_format="{:.4f}".format))
 
     model_path = MODELS_DIR / "char_ngram.joblib"
     joblib.dump({
@@ -160,11 +164,20 @@ def main() -> None:
         f"{ng['pr_auc']:.4f}, F1 {ng['f1']:.4f} (precision {ng['precision']:.4f}, recall "
         f"{ng['recall']:.4f}) at threshold {THRESHOLD}. At a {TARGET_FPR:.0%} false-positive "
         f"rate it catches {ng['recall_at_1pct_fpr']:.2%} of phishing URLs.",
+        f"- Char n-gram accuracy {ng['accuracy']:.4f}, balanced accuracy "
+        f"{ng['balanced_accuracy']:.4f}, specificity {ng['specificity']:.4f}, MCC "
+        f"{ng['mcc']:.4f}; macro F1 over both classes "
+        f"{by_class.loc['macro avg', 'f1']:.4f}.",
         f"- LightGBM on the same rows: ROC-AUC {lg['roc_auc']:.4f}, PR-AUC {lg['pr_auc']:.4f}, "
         f"F1 {lg['f1']:.4f}, recall at {TARGET_FPR:.0%} FPR {lg['recall_at_1pct_fpr']:.2%}.",
         f"- Logistic Regression on the 21 URL features: ROC-AUC {lr['roc_auc']:.4f}, PR-AUC "
         f"{lr['pr_auc']:.4f}, F1 {lr['f1']:.4f}. Same classifier as the n-gram model, so the "
         "gap between the two is down to the input representation.",
+        "- Probability error (test, lower is better): "
+        + "; ".join(f"{name} MAE {row['mae']:.4f}, RMSE {row['rmse']:.4f}, log loss "
+                    f"{row['log_loss']:.4f}"
+                    for name, row in [("char n-gram", ng), ("LightGBM", lg),
+                                      ("Logistic Regression", lr)]) + ".",
         f"- At threshold {THRESHOLD}, the n-gram model misses {fn} of {fn + tp} phishing URLs "
         f"and flags {fp} of {tn + fp} legitimate URLs ({fp / (tn + fp):.2%}).\n",
         "## Setup\n",
@@ -185,8 +198,17 @@ def main() -> None:
         f"Selected: C={best_C}\n",
         "## Test results\n",
         f"Threshold-based metrics use threshold {THRESHOLD}. `recall_at_1pct_fpr` is the share "
-        f"of phishing URLs caught when {TARGET_FPR:.0%} of legitimate URLs are flagged.\n",
+        f"of phishing URLs caught when {TARGET_FPR:.0%} of legitimate URLs are flagged. "
+        "`precision`, `recall` and `f1` are for the phishing class; `specificity` is the recall "
+        "of the legitimate class, `balanced_accuracy` the mean of the two recalls, and `mcc` "
+        "the Matthews correlation (-1 to 1, 0 = chance). "
+        "`mae`, `mse_brier`, `rmse` and `log_loss` compare the predicted phishing probability "
+        "with the 0/1 label (lower is better); `mse_brier` is the Brier score and `rmse` its "
+        "square root.\n",
         results.to_markdown(floatfmt=".4f"),
+        "",
+        "## Char n-gram precision, recall and F1 by class (test split)\n",
+        by_class.to_markdown(floatfmt=".4f"),
         "",
         "## Char n-gram results by source (test split)\n",
         by_source.to_markdown(floatfmt=".4f"),

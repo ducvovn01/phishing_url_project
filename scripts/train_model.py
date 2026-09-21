@@ -27,8 +27,14 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
+    balanced_accuracy_score,
+    classification_report,
     confusion_matrix,
     f1_score,
+    log_loss,
+    matthews_corrcoef,
+    mean_absolute_error,
+    mean_squared_error,
     precision_recall_curve,
     precision_score,
     recall_score,
@@ -224,21 +230,51 @@ def positive_proba(model, X: pd.DataFrame | pd.Series) -> np.ndarray:
 
 def evaluate(y_true: pd.Series, proba: np.ndarray) -> dict:
     pred = (proba >= THRESHOLD).astype(int)
+    # Error metrics on the predicted probability vs the 0/1 label, so they
+    # reward calibrated confidence rather than just the right side of the
+    # threshold. MSE here is the Brier score; RMSE is its square root.
+    mse = mean_squared_error(y_true, proba)
     metrics = {
         "precision": precision_score(y_true, pred, zero_division=0),
         "recall": recall_score(y_true, pred, zero_division=0),
         "f1": f1_score(y_true, pred, zero_division=0),
         "accuracy": accuracy_score(y_true, pred),
+        # Share of legitimate URLs left unflagged: recall of the negative class.
+        "specificity": recall_score(y_true, pred, pos_label=0, zero_division=np.nan),
+        # Mean of recall and specificity, and a correlation over all four
+        # confusion-matrix cells: unlike accuracy, neither can be inflated by
+        # the majority class (semihguner is ~99% phishing).
+        "balanced_accuracy": np.nan,
+        "mcc": np.nan,
+        "mae": mean_absolute_error(y_true, proba),
+        "mse_brier": mse,
+        "rmse": float(np.sqrt(mse)),
+        "log_loss": log_loss(y_true, proba, labels=[0, 1]),
         "roc_auc": np.nan,
         "pr_auc": np.nan,
         "recall_at_1pct_fpr": np.nan,
     }
     if y_true.nunique() == 2:
+        metrics["balanced_accuracy"] = balanced_accuracy_score(y_true, pred)
+        metrics["mcc"] = matthews_corrcoef(y_true, pred)
         fpr, tpr, _ = roc_curve(y_true, proba)
         metrics["roc_auc"] = roc_auc_score(y_true, proba)
         metrics["pr_auc"] = average_precision_score(y_true, proba)
         metrics["recall_at_1pct_fpr"] = float(np.interp(TARGET_FPR, fpr, tpr))
     return metrics
+
+
+def per_class_table(y_true: pd.Series, proba: np.ndarray) -> pd.DataFrame:
+    """Precision, recall and F1 for each class at THRESHOLD, plus their macro
+    (unweighted) and support-weighted averages. `evaluate()` only reports the
+    phishing class."""
+    pred = (proba >= THRESHOLD).astype(int)
+    report = classification_report(y_true, pred, labels=[0, 1],
+                                   target_names=["legitimate", "phishing"],
+                                   output_dict=True, zero_division=0)
+    table = pd.DataFrame(report).T.drop(index="accuracy", errors="ignore")
+    table["support"] = table["support"].astype(int)
+    return table.rename(columns={"f1-score": "f1"})
 
 
 def per_source_table(test: pd.DataFrame, proba: np.ndarray) -> pd.DataFrame:
@@ -373,7 +409,8 @@ def main() -> None:
         "LightGBM + protocol flags (ablation, not saved)": evaluate(y_test, ablation_proba),
     }).T
     by_source = per_source_table(test, lgbm_proba)
-    cm = confusion_matrix(y_test, (lgbm_proba >= THRESHOLD).astype(int))
+    by_class = per_class_table(y_test, lgbm_proba)
+    cm =confusion_matrix(y_test, (lgbm_proba >= THRESHOLD).astype(int))
     gain = pd.Series(lgbm.booster_.feature_importance(importance_type="gain"),
                      index=lgbm.booster_.feature_name())
     importance = (gain / gain.sum() * 100).sort_values(ascending=False)
@@ -382,6 +419,8 @@ def main() -> None:
     print(results.to_string(float_format="{:.4f}".format))
     print()
     print(by_source.to_string(float_format="{:.4f}".format))
+    print()
+    print(by_class.to_string(float_format="{:.4f}".format))
     print()
 
     plot_curves(y_test, {"LightGBM": lgbm_proba, "Logistic Regression": logreg_proba})
@@ -416,9 +455,16 @@ def main() -> None:
         f"F1 {lg['f1']:.4f} (precision {lg['precision']:.4f}, recall {lg['recall']:.4f}) "
         f"at threshold {THRESHOLD}. At a {TARGET_FPR:.0%} false-positive rate it catches "
         f"{lg['recall_at_1pct_fpr']:.2%} of phishing URLs.",
+        f"- LightGBM accuracy {lg['accuracy']:.4f}, balanced accuracy "
+        f"{lg['balanced_accuracy']:.4f}, specificity {lg['specificity']:.4f}, MCC "
+        f"{lg['mcc']:.4f}; macro F1 over both classes "
+        f"{by_class.loc['macro avg', 'f1']:.4f}.",
         f"- Logistic Regression baseline (test): ROC-AUC {lr['roc_auc']:.4f}, PR-AUC "
         f"{lr['pr_auc']:.4f}, F1 {lr['f1']:.4f}, recall at {TARGET_FPR:.0%} FPR "
         f"{lr['recall_at_1pct_fpr']:.2%}.",
+        f"- Probability error (test, lower is better): LightGBM MAE {lg['mae']:.4f}, RMSE "
+        f"{lg['rmse']:.4f}, log loss {lg['log_loss']:.4f}; Logistic Regression MAE "
+        f"{lr['mae']:.4f}, RMSE {lr['rmse']:.4f}, log loss {lr['log_loss']:.4f}.",
         f"- At threshold {THRESHOLD}, LightGBM misses {fn} of {fn + tp} phishing URLs and "
         f"flags {fp} of {tn + fp} legitimate URLs ({fp / (tn + fp):.2%}).",
         f"- Weakest source for LightGBM by F1: {weakest} "
@@ -454,8 +500,17 @@ def main() -> None:
         f"Selected: {best_params}\n",
         "## Test results\n",
         f"Threshold-based metrics use threshold {THRESHOLD}. `recall_at_1pct_fpr` is the share "
-        f"of phishing URLs caught when {TARGET_FPR:.0%} of legitimate URLs are flagged.\n",
+        f"of phishing URLs caught when {TARGET_FPR:.0%} of legitimate URLs are flagged. "
+        "`precision`, `recall` and `f1` are for the phishing class; `specificity` is the recall "
+        "of the legitimate class, `balanced_accuracy` the mean of the two recalls, and `mcc` "
+        "the Matthews correlation (-1 to 1, 0 = chance). "
+        "`mae`, `mse_brier`, `rmse` and `log_loss` compare the predicted phishing probability "
+        "with the 0/1 label (lower is better); `mse_brier` is the Brier score and `rmse` its "
+        "square root.\n",
         results.to_markdown(floatfmt=".4f"),
+        "",
+        "## LightGBM precision, recall and F1 by class (test split)\n",
+        by_class.to_markdown(floatfmt=".4f"),
         "",
         "## LightGBM results by source (test split)\n",
         by_source.to_markdown(floatfmt=".4f"),
