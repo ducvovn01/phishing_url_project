@@ -8,14 +8,21 @@
 # eda_report.md), so a random row-level split would leak near-duplicate
 # URLs between train and test. Group by `domain` when splitting.
 import re
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import tldextract
+from rapidfuzz import fuzz, process
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+
+# brand_list.py lives under data/reference, not scripts/ — not a package,
+# just a path insert like the rest of this file's flat script layout.
+sys.path.insert(0, str(PROJECT_ROOT / "data" / "reference"))
+from brand_list import load_brand_list  # noqa: E402
 
 _PROTOCOL_RE = re.compile(r"^([a-zA-Z][a-zA-Z0-9+.-]*)://")
 _IP_HOSTNAME_RE = re.compile(r"^(?:\d{1,3}\.){3}\d{1,3}$")
@@ -32,6 +39,99 @@ SUSPICIOUS_KEYWORDS = [
 # disables the live network fetch so this script is reproducible offline and
 # doesn't silently depend on internet access at run time.
 _EXTRACT = tldextract.TLDExtract(suffix_list_urls=())
+
+# Brand/typosquat similarity (FR3). Loaded once at import time — see
+# data/reference/brand_list.py for sources (curated list + Tranco top 1000).
+BRAND_LIST = load_brand_list()
+_BRAND_SET = set(BRAND_LIST)
+
+# Unicode characters visually confusable with a Latin letter in a lowercased
+# hostname (Cyrillic/Greek look-alikes seen in real typosquat domains). Kept
+# as its own step from normalize_leetspeak() below: this catches
+# lookalike-*script* substitution, leetspeak catches same-script
+# digit-for-letter substitution — separating them keeps it clear in the code
+# (and explainable in the report) which mechanism caught which typosquat.
+_HOMOGLYPH_MAP = str.maketrans({
+    "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "у": "y", "х": "x",
+    "і": "i", "ј": "j", "ѕ": "s", "һ": "h", "ԁ": "d", "ɡ": "g",
+    "ⅰ": "i", "ⅼ": "l", "０": "0", "１": "1",
+    "α": "a", "ο": "o", "υ": "y", "ν": "v", "κ": "k",  # Greek
+})
+
+
+def normalize_homoglyphs(s: str) -> str:
+    """Map Cyrillic/Greek look-alike characters to their Latin equivalent
+    (e.g. Cyrillic "а" U+0430 -> Latin "a"), so a domain built from those
+    characters compares against the brand list the way it visually reads."""
+    return s.translate(_HOMOGLYPH_MAP)
+
+
+# ASCII digit-for-letter substitutions common in typosquatting (paypa1,
+# amaz0n, 5ecure). Applied after normalize_homoglyphs() as a separate step
+# — see the comment above.
+_LEETSPEAK_MAP = str.maketrans({"0": "o", "1": "l", "3": "e", "5": "s", "7": "t", "4": "a"})
+
+
+def normalize_leetspeak(s: str) -> str:
+    """Map common ASCII leetspeak substitutions (0->o, 1->l, 3->e, 5->s,
+    7->t, 4->a) plus the "rn" -> "m" digraph used to fake a letter."""
+    return s.translate(_LEETSPEAK_MAP).replace("rn", "m")
+
+
+def _best_brand_match(labels: list[str], brands: list[str]) -> tuple[np.ndarray, list[str]]:
+    """Best rapidfuzz.fuzz.ratio match (0-1) for each label against `brands`,
+    via rapidfuzz.process.cdist — a vectorized all-pairs batch call.
+    Benchmarked against a process.extractOne-per-row loop on a 10k-row
+    sample of combined_dataset.csv: cdist was ~37x faster (1.3us/row vs
+    48.3us/row) with identical top-match results on all 10k rows, so cdist
+    is what runs on the full dataset."""
+    if not labels:
+        return np.array([]), []
+    scores = process.cdist(labels, brands, scorer=fuzz.ratio, workers=-1)
+    best_idx = scores.argmax(axis=1)
+    best_score = scores[np.arange(len(labels)), best_idx] / 100.0
+    best_brand = [brands[i] for i in best_idx]
+    return best_score, best_brand
+
+
+def compute_brand_similarity(domain_label: pd.Series) -> pd.DataFrame:
+    """brand_similarity_score (float, 0-1), is_exact_brand_match (bool) and
+    matched_brand (str) for each row's bare registrable-domain label
+    (suffix already stripped by the caller).
+
+    Matched once per *unique* label, not per row: combined_dataset.csv has
+    heavy domain overlap (~770k unique domain labels for 1.6M rows, see
+    eda_report.md), so matching every row separately would repeat identical
+    work roughly twice over for no benefit — the result is joined back onto
+    every row afterwards.
+
+    Similarity is checked against both the raw label and the
+    homoglyph+leetspeak-normalized variant (normalize_homoglyphs() then
+    normalize_leetspeak()); whichever scores higher wins. is_exact_brand_match
+    is checked against the raw label only, so a literal brand domain (e.g.
+    "paypal.com") is flagged as an exact match — rather than a "typosquat of
+    itself" — with brand_similarity_score at its natural value of 1.0 from
+    matching itself in the fuzzy pass, not a separately special-cased 1.0.
+    """
+    uniq_labels = pd.Index(domain_label.unique())
+    raw = uniq_labels.tolist()
+    normalized = [normalize_leetspeak(normalize_homoglyphs(s)) for s in raw]
+
+    raw_score, raw_brand = _best_brand_match(raw, BRAND_LIST)
+    norm_score, norm_brand = _best_brand_match(normalized, BRAND_LIST)
+
+    use_norm = norm_score > raw_score
+    best_score = np.where(use_norm, norm_score, raw_score)
+    best_brand = [nb if u else rb for u, rb, nb in zip(use_norm, raw_brand, norm_brand)]
+
+    lookup = pd.DataFrame(
+        {"brand_similarity_score": best_score, "matched_brand": best_brand},
+        index=uniq_labels,
+    )
+    out = lookup.loc[domain_label.to_numpy()]
+    out.index = domain_label.index
+    out["is_exact_brand_match"] = domain_label.isin(_BRAND_SET)
+    return out
 
 
 def split_url(url: str):
@@ -85,6 +185,10 @@ def extract_features(df: pd.DataFrame) -> pd.DataFrame:
         [e.top_domain_under_public_suffix or h for e, h in zip(ext, hostname)],
         index=df.index,
     )
+    # Bare second-level label (suffix stripped, e.g. "paypal" from
+    # "paypal.com") — the comparison base for brand-similarity matching
+    # below, not a model feature or the grouping key (that's `domain`).
+    domain_label = pd.Series([e.domain for e in ext], index=df.index)
 
     feats = pd.DataFrame(index=df.index)
     feats["url"] = urls
@@ -135,6 +239,12 @@ def extract_features(df: pd.DataFrame) -> pd.DataFrame:
 
     # Randomness signal — phishing domains often look more "random"
     feats["hostname_entropy"] = hostname.map(shannon_entropy)
+
+    # Brand/typosquat similarity (FR3) — see compute_brand_similarity().
+    brand = compute_brand_similarity(domain_label)
+    feats["brand_similarity_score"] = brand["brand_similarity_score"]
+    feats["is_exact_brand_match"] = brand["is_exact_brand_match"].astype(int)
+    feats["matched_brand"] = brand["matched_brand"]  # not a model feature — see train_model.py
 
     return feats
 

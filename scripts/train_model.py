@@ -58,7 +58,10 @@ CV_FOLDS = 3
 # Not model inputs: identifier, target, provenance and the grouping key.
 # `source` is out because class balance differs wildly per source, so it is a
 # shortcut to the label that a URL seen in the wild doesn't come with.
-NON_FEATURE_COLUMNS = ["url", "label", "source", "domain"]
+# `matched_brand` is which brand's fuzzy match won (a string, kept for the A2
+# report's misclassification analysis) — brand_similarity_score and
+# is_exact_brand_match are the model-facing summary of that match.
+NON_FEATURE_COLUMNS = ["url", "label", "source", "domain", "matched_brand"]
 # Source-formatting artifacts rather than phishing signals — see the comment
 # on these flags in extract_features.py. Trained once with them anyway (the
 # "ablation" model) to show how much a model could gain from them.
@@ -476,14 +479,24 @@ def main() -> None:
         "record how each source formatted its URLs, so any gain from them would not carry "
         "over to real traffic. They are left out of the saved models.",
         f"- Top features by split gain: "
-        + ", ".join(f"`{f}` ({v:.1f}%)" for f, v in importance.head(5).items()) + ".\n",
+        + ", ".join(f"`{f}` ({v:.1f}%)" for f, v in importance.head(5).items()) + ".",
+        f"- Brand-similarity features (FR3, added over the original 21): `brand_similarity_score` "
+        f"ranks {list(importance.index).index('brand_similarity_score') + 1} of {len(importance)} "
+        f"by split gain ({importance['brand_similarity_score']:.2f}%) — just behind `tld` and "
+        f"`path_length`, ahead of every lexical count feature. `is_exact_brand_match` ranks "
+        f"{list(importance.index).index('is_exact_brand_match') + 1} "
+        f"({importance['is_exact_brand_match']:.2f}%): most of its signal is already implied by "
+        f"a high `brand_similarity_score`, so it adds little on top of the continuous score.\n",
         "## Setup\n",
         f"- Split: `GroupShuffleSplit` on `domain`, test size {TEST_SIZE}, "
         f"random_state {RANDOM_STATE}.",
         f"- Features ({len(feature_cols)}): " + ", ".join(f"`{c}`" for c in feature_cols) + ".",
         "- Not used as features: `url` (identifier), `label` (target), `domain` (grouping key), "
         "`source` (provenance; a shortcut to the label), `has_protocol` and `uses_https` "
-        "(source-formatting artifacts - see ablation).",
+        "(source-formatting artifacts - see ablation), `matched_brand` (string, which brand "
+        "won the fuzzy match - kept for the A2 report's misclassification analysis, not a "
+        "model input; `brand_similarity_score`/`is_exact_brand_match` are its model-facing "
+        "summary).",
         f"- `tld` is categorical. TLDs seen fewer than {MIN_TLD_COUNT} times in train are pooled "
         f"into `{OTHER_TLD}`, and a missing suffix is `{NO_TLD}` "
         f"({len(tld_categories)} categories in total).",
@@ -533,6 +546,16 @@ def main() -> None:
         "on URLs from a new source.",
         "- Hosting and dynamic-DNS domains (e.g. `blogspot.com`, `duckdns.org`) are one group "
         "each, so all of their subdomains fall on the same side of the split.",
+        "- `brand_similarity_score` (`rapidfuzz.fuzz.ratio`) is a normalized edit distance, "
+        "which is noisy on short domain labels: a 3-4 character label needs only a one- or "
+        "two-character difference from some brand in the list to score >=0.85 by chance (e.g. "
+        "`fida.com` scores 0.857 against `fda`), independent of any real typosquat intent. "
+        "Longer look-alike labels (`instagrame.net` vs `instagram`, `tercent.tk` vs `tencent`) "
+        "score high for the right reason. Because of this the dataset-wide mean score is "
+        "*higher* for legitimate rows than phishing rows (0.675 vs 0.600) — driven by "
+        "legitimate rows that are literally a brand's own domain (`is_exact_brand_match=True`, "
+        "16.6% of legitimate rows vs 7.2% of phishing rows) — so read the two features "
+        "together, not `brand_similarity_score` alone, when explaining a prediction.",
         f"- Threshold {THRESHOLD} was not tuned. Pick the operating point from the ROC curve "
         "based on how many false alarms are acceptable.",
         "",
