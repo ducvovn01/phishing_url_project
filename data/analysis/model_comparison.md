@@ -13,7 +13,7 @@ Source: `scripts/compare_models.py`. Every saved model scored on the same domain
 | Model | Family | Input | Trained by |
 |---|---|---|---|
 | LightGBM | Supervised | 21 URL features incl. `tld` | `train_model.py` |
-| Logistic Regression | Supervised | 21 URL features incl. `tld` | `train_model.py` |
+| Logistic Regression | Supervised | 23 URL features incl. `tld` | `train_model.py` |
 | Char n-gram + LogReg | Supervised | raw URL, 3-5 char n-grams | `train_char_ngram.py` |
 | K-Means | Clustering (label used only to score clusters) | 20 numeric URL features | `clustering_model.py` |
 | HDBSCAN | Clustering (label used only to score clusters) | 20 numeric URL features | `clustering_model.py` |
