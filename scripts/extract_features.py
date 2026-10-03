@@ -28,6 +28,40 @@ SUSPICIOUS_KEYWORDS = [
     "banking", "webscr", "ebayisapi", "password", "billing", "suspend",
 ]
 
+# Official domains of brands that phishing often impersonates, drawn up from
+# public brand-phishing rankings - not from this dataset or its test results.
+# Brand portals only: content-hosting platforms (blogspot.com, sharepoint.com,
+# github.io, web.app...) are left out, since their subdomains belong to anyone.
+# Used by preprocess_url_masked().
+OFFICIAL_BRAND_DOMAINS = frozenset({
+    # Microsoft
+    "microsoft.com", "live.com", "outlook.com", "office.com", "office365.com",
+    "microsoftonline.com",
+    # Google
+    "google.com", "gmail.com", "youtube.com",
+    # Apple
+    "apple.com", "icloud.com",
+    # Meta
+    "facebook.com", "fb.com", "messenger.com", "instagram.com", "whatsapp.com", "meta.com",
+    # Other tech, social and media
+    "amazon.com", "netflix.com", "linkedin.com", "yahoo.com", "adobe.com", "dropbox.com",
+    "docusign.com", "docusign.net", "github.com", "twitter.com", "x.com", "tiktok.com",
+    "discord.com", "telegram.org", "zoom.us", "spotify.com", "roblox.com",
+    "steampowered.com", "steamcommunity.com",
+    # Shopping and travel
+    "ebay.com", "walmart.com", "alibaba.com", "aliexpress.com", "costco.com", "target.com",
+    "bestbuy.com", "booking.com", "airbnb.com",
+    # Payments, banks and crypto
+    "paypal.com", "chase.com", "wellsfargo.com", "bankofamerica.com", "citi.com", "hsbc.com",
+    "americanexpress.com", "mastercard.com", "visa.com", "binance.com", "coinbase.com",
+    # Delivery, telecom and government
+    "dhl.com", "fedex.com", "ups.com", "usps.com", "att.com", "verizon.com", "xfinity.com",
+    "irs.gov",
+})
+# Stands in for the brand label of an official domain. Never occurs in
+# preprocessed URLs, so it can't collide with real text.
+BRAND_MASK = "§"
+
 # tldextract ships a bundled public-suffix-list snapshot. suffix_list_urls=()
 # disables the live network fetch so this script is reproducible offline and
 # doesn't silently depend on internet access at run time.
@@ -52,6 +86,29 @@ def preprocess_url(url: str) -> str:
 
 def get_hostname(rest: str) -> str:
     return rest.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0].split("@")[-1]
+
+
+def preprocess_url_masked(url: str) -> str:
+    """preprocess_url(), and when the host is on an official brand domain, its
+    brand label is replaced by BRAND_MASK: "docs.google.com/x" becomes
+    "docs.§.com/x". A char n-gram model then learns what an official brand
+    domain looks like from the brands it has seen, and applies that to brands
+    it hasn't - without it, a brand whose own domain is missing from train is
+    known only from phishing pages that impersonate it. A brand name anywhere
+    else (subdomain, path, "paypal-login.com") is left as is, so impersonation
+    still shows."""
+    text = preprocess_url(url)
+    authority = text.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
+    host = authority.split("@")[-1]
+    host_no_port = _PORT_RE.sub("", host)
+    ext = _EXTRACT(host_no_port)
+    if ext.top_domain_under_public_suffix not in OFFICIAL_BRAND_DOMAINS:
+        return text
+    masked_host = ".".join(p for p in (ext.subdomain, BRAND_MASK, ext.suffix) if p)
+    # The host is the tail of the authority (after any "user@"), so splice
+    # the masked host in at that position; the port, if any, is kept.
+    start = len(authority) - len(host)
+    return text[:start] + masked_host + host[len(host_no_port):] + text[len(authority):]
 
 
 def shannon_entropy(s: str) -> float:

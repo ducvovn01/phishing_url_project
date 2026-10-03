@@ -8,11 +8,16 @@
 # saved LightGBM and Logistic Regression models on that test split for a
 # side-by-side table.
 #
-# URLs go through extract_features.preprocess_url() first (scheme stripped,
-# lowercased), to keep source formatting out of the input - same reason
-# has_protocol/uses_https are dropped in train_model.py. It lives there rather
-# than here so the pickled pipeline refers to an importable module, not
-# __main__.
+# URLs go through extract_features.preprocess_url_masked() first: scheme
+# stripped and lowercased, to keep source formatting out of the input (same
+# reason has_protocol/uses_https are dropped in train_model.py), and the brand
+# label of an official brand domain replaced by a shared mask ("facebook.com"
+# -> "§.com"). Without the mask, a brand whose own domain is missing from train
+# is known only from pages impersonating it, and its real site gets flagged:
+# the domain-grouped split put every facebook.com row in test. The same
+# pipeline without the mask is fitted once more as an ablation. The
+# preprocessors live in extract_features.py so the pickled pipeline refers to
+# an importable module, not __main__.
 #
 # Writes models/char_ngram.joblib and data/analysis/char_ngram_report.md.
 import time
@@ -26,7 +31,7 @@ from sklearn.metrics import average_precision_score, confusion_matrix
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.pipeline import Pipeline
 
-from extract_features import preprocess_url
+from extract_features import OFFICIAL_BRAND_DOMAINS, preprocess_url, preprocess_url_masked
 from train_model import (
     ANALYSIS_DIR,
     MODELS_DIR,
@@ -51,12 +56,19 @@ N_FEATURES = 2 ** 20
 VAL_SIZE = 0.1  # share of train domains held out to pick C
 C_GRID = [1.0, 3.0, 10.0, 30.0]
 
+# Row names in the results tables.
+NGRAM = "Char n-gram + Logistic Regression"
+UNMASKED = "Char n-gram without brand masking (ablation, not saved)"
+LIGHTGBM = "LightGBM (saved model)"
+LOGREG = "Logistic Regression on URL features (saved model)"
+ALL_BRANDS = "(all official domains)"
 
-def ngram_hasher(analyzer="char") -> HashingVectorizer:
+
+def ngram_hasher(analyzer="char", preprocessor=preprocess_url_masked) -> HashingVectorizer:
     return HashingVectorizer(
         analyzer=analyzer,
         ngram_range=NGRAM_RANGE,
-        preprocessor=preprocess_url,
+        preprocessor=preprocessor,
         n_features=N_FEATURES,
         alternate_sign=False,
         norm=None,
@@ -64,10 +76,10 @@ def ngram_hasher(analyzer="char") -> HashingVectorizer:
     )
 
 
-def build_char_ngram(C: float) -> Pipeline:
+def build_char_ngram(C: float, preprocessor=preprocess_url_masked) -> Pipeline:
     """Raw URL strings in, phishing probability out."""
     return Pipeline([
-        ("ngrams", ngram_hasher()),
+        ("ngrams", ngram_hasher(preprocessor=preprocessor)),
         ("tfidf", TfidfTransformer(sublinear_tf=True)),
         ("model", LogisticRegression(solver="liblinear", C=C)),
     ])
@@ -96,7 +108,7 @@ def top_ngrams(pipeline: Pipeline, urls: pd.Series, n: int = 15) -> pd.DataFrame
     hashed columns, so the n-gram text is recovered by hashing a vocabulary
     of real n-grams and reading their columns' weights."""
     vocab = CountVectorizer(
-        analyzer="char", ngram_range=NGRAM_RANGE, preprocessor=preprocess_url, min_df=200,
+        analyzer="char", ngram_range=NGRAM_RANGE, preprocessor=preprocess_url_masked, min_df=200,
     ).fit(urls).get_feature_names_out()
     # Hash each n-gram as a single token to find its column.
     columns = ngram_hasher(analyzer=lambda s: [s]).transform(vocab).indices
@@ -107,6 +119,23 @@ def top_ngrams(pipeline: Pipeline, urls: pd.Series, n: int = 15) -> pd.DataFrame
         table.tail(n)[::-1].assign(direction="phishing"),
         table.head(n).assign(direction="legitimate"),
     ])[["direction", "ngram", "weight"]]
+
+
+def brand_domain_table(test: pd.DataFrame, probas: dict, top: int = 10) -> pd.DataFrame:
+    """Share of legitimate test URLs on official brand domains that each model
+    flags as phishing: per domain for the `top` domains with the most rows,
+    and over all of them."""
+    # `test` has a RangeIndex (split_by_domain resets it), so its index labels
+    # are also row positions into each proba array.
+    legit = test[test["domain"].isin(OFFICIAL_BRAND_DOMAINS) & (test["label"] == 0)]
+    flagged = pd.DataFrame({name: proba[legit.index.to_numpy()] >= THRESHOLD
+                            for name, proba in probas.items()}, index=legit.index)
+    table = flagged.groupby(legit["domain"]).mean()
+    table.insert(0, "legit_rows", legit["domain"].value_counts())
+    table = table.sort_values("legit_rows", ascending=False).head(top)
+    table.loc[ALL_BRANDS] = [len(legit), *flagged.mean()]
+    table["legit_rows"] = table["legit_rows"].astype(int)
+    return table
 
 
 def main() -> None:
@@ -127,9 +156,12 @@ def main() -> None:
     ngram_proba = positive_proba(pipeline, test["url"])
     log(f"Fitted char n-gram model on all of train with C={best_C}", start)
 
-    probas = {"Char n-gram + Logistic Regression": ngram_proba}
-    for name, label in [("lightgbm", "LightGBM (saved model)"),
-                        ("logreg", "Logistic Regression on URL features (saved model)")]:
+    # Ablation: same C without the brand mask, to show what the mask changes.
+    unmasked = build_char_ngram(best_C, preprocessor=preprocess_url).fit(train["url"], y_train)
+    probas = {NGRAM: ngram_proba, UNMASKED: positive_proba(unmasked, test["url"])}
+    log("Fitted ablation without brand masking", start)
+
+    for name, label in [("lightgbm", LIGHTGBM), ("logreg", LOGREG)]:
         bundle = joblib.load(MODELS_DIR / f"{name}.joblib")
         X = build_matrix(test, bundle["feature_columns"], bundle["tld_categories"])
         probas[label] = positive_proba(bundle["model"], X)
@@ -137,7 +169,8 @@ def main() -> None:
     results = pd.DataFrame({k: evaluate(test["label"], p) for k, p in probas.items()}).T
     by_source = per_source_table(test, ngram_proba)
     by_class = per_class_table(test["label"], ngram_proba)
-    cm =confusion_matrix(y_test, (ngram_proba >= THRESHOLD).astype(int))
+    brands = brand_domain_table(test, probas)
+    cm = confusion_matrix(y_test, (ngram_proba >= THRESHOLD).astype(int))
     ngrams = top_ngrams(pipeline, train["url"].sample(300_000, random_state=RANDOM_STATE))
     print()
     print(results.to_string(float_format="{:.4f}".format))
@@ -145,6 +178,8 @@ def main() -> None:
     print(by_source.to_string(float_format="{:.4f}".format))
     print()
     print(by_class.to_string(float_format="{:.4f}".format))
+    print()
+    print(brands.to_string(float_format="{:.4f}".format))
 
     model_path = MODELS_DIR / "char_ngram.joblib"
     joblib.dump({
@@ -153,7 +188,8 @@ def main() -> None:
     }, model_path)
     print(f"saved {model_path}")
 
-    ng, lg, lr = (results.iloc[i] for i in range(3))
+    ng, ab, lg, lr = (results.loc[k] for k in [NGRAM, UNMASKED, LIGHTGBM, LOGREG])
+    all_brands = brands.loc[ALL_BRANDS]
     tn, fp, fn, tp = cm.ravel()
     report = [
         "# Char N-gram Report - Phishing URL Detector\n",
@@ -179,12 +215,23 @@ def main() -> None:
                     for name, row in [("char n-gram", ng), ("LightGBM", lg),
                                       ("Logistic Regression", lr)]) + ".",
         f"- At threshold {THRESHOLD}, the n-gram model misses {fn} of {fn + tp} phishing URLs "
-        f"and flags {fp} of {tn + fp} legitimate URLs ({fp / (tn + fp):.2%}).\n",
+        f"and flags {fp} of {tn + fp} legitimate URLs ({fp / (tn + fp):.2%}).",
+        f"- Brand masking: of the {all_brands['legit_rows']} legitimate test URLs on official "
+        f"brand domains, the model flags {all_brands[NGRAM]:.2%}, against "
+        f"{all_brands[UNMASKED]:.2%} for the same model without the mask. Over the whole test "
+        f"split the mask moves PR-AUC from {ab['pr_auc']:.4f} to {ng['pr_auc']:.4f}, F1 from "
+        f"{ab['f1']:.4f} to {ng['f1']:.4f} and the false-positive rate from "
+        f"{1 - ab['specificity']:.2%} to {1 - ng['specificity']:.2%}.\n",
         "## Setup\n",
         "- Test split: `split_by_domain()` from `train_model.py` (same rows as `model_report.md`).",
         f"- Input: URL with the scheme stripped and lowercased. Scheme and letter case mostly "
         "record how each source formatted its URLs (phiusiil has no uppercase at all), so "
         "they are removed.",
+        f"- Brand mask: when the registrable domain is one of {len(OFFICIAL_BRAND_DOMAINS)} "
+        "official brand domains (`OFFICIAL_BRAND_DOMAINS` in `extract_features.py`, drawn up "
+        "from public brand-phishing rankings), its brand label is replaced by `§`: "
+        "`docs.google.com/forms/x` becomes `docs.§.com/forms/x`. The brand name anywhere else "
+        "(`facebook.com.evil.tk`, `singin-facebook.com`, a path) is left as is.",
         f"- Features: every {NGRAM_RANGE[0]}-{NGRAM_RANGE[1]} character substring, hashed into "
         f"{N_FEATURES:,} columns (`HashingVectorizer`), then TF-IDF with sublinear term "
         "frequency.",
@@ -206,6 +253,16 @@ def main() -> None:
         "with the 0/1 label (lower is better); `mse_brier` is the Brier score and `rmse` its "
         "square root.\n",
         results.to_markdown(floatfmt=".4f"),
+        "",
+        "## Brand masking (test split)\n",
+        "Share of legitimate URLs flagged as phishing, on the official brand domains with the "
+        "most legitimate test rows and over all of them. The domain-grouped split put every "
+        "`facebook.com` and `netflix.com` row in test, so without the mask the model knows "
+        "these brands only from train URLs that impersonate them. With the mask it can apply "
+        "what it learned from official domains that are in train (`amazon.com`, "
+        "`microsoft.com`, `yahoo.com`...).\n",
+        # Rounded rather than floatfmt'd, which would print legit_rows as 9078.0000.
+        brands.round(4).to_markdown(),
         "",
         "## Char n-gram precision, recall and F1 by class (test split)\n",
         by_class.to_markdown(floatfmt=".4f"),
@@ -230,6 +287,11 @@ def main() -> None:
         "shortcuts. Others remain and the n-grams can see them directly: e.g. every phiusiil "
         "legitimate URL is a bare `www.<domain>` with no path, and no semihguner URL starts "
         "with `www.`.",
+        "- The brand mask only covers the brands on its list. A brand that is not on it, and "
+        "whose own domain is not in train, is still known only from URLs impersonating it.",
+        "- The mask does not whitelist anything: a phishing page hosted on an official domain "
+        "(`docs.google.com/forms/...`, `sites.google.com/...`) is still scored from its "
+        "subdomain and path.",
         "",
     ]
     report_path = ANALYSIS_DIR / "char_ngram_report.md"
