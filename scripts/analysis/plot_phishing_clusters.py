@@ -34,7 +34,7 @@ def main() -> None:
     im = ax.imshow(Z, cmap=cmap, vmin=-3, vmax=3, aspect="auto")
     ax.set_xticks(range(len(FEATURES)), [f.replace("_", " ") for f in FEATURES], rotation=35, ha="right", color=INK2, fontsize=9)
     ax.set_yticks(range(len(clusters)),
-                  [f"{NAMES.get(int(c), f"Cluster {c}")}\n{d['share']:.1%} of phishing" for c, d in clusters], color=INK, fontsize=9)
+                  [f"{NAMES.get(int(c), 'Cluster ' + str(c))}\n{d['share']:.1%} of phishing" for c, d in clusters], color=INK, fontsize=9)
     for i in range(Z.shape[0]):
         for j in range(Z.shape[1]):
             ax.text(j, i, f"{Z[i, j] + 0.0:+.1f}".replace("-0.0", "+0.0"), ha="center", va="center", fontsize=8,

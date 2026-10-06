@@ -45,9 +45,13 @@ Sources have very different phishing shares, so compare models within a column, 
 | HDBSCAN              |          0.8661 |   0.5677 |     0.5900 |       0.8998 |
 | Autoencoder          |          0.7549 |   0.5063 |     0.6791 |       0.7620 |
 
-## Plot
+## Plots
 
 ![Model comparison](plots/model_comparison.png)
+
+Precision-recall curve of every model on the test split. PR-AUC is the area under each curve; dots mark each model's operating point at threshold 0.5, and the dashed line is the precision of a random model (the phishing share).
+
+![Precision-recall curves](plots/model_pr_curves.png)
 
 ## Caveats
 

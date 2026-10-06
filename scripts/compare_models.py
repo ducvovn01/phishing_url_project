@@ -1,18 +1,22 @@
-"""Score every saved model in models/ on one test split; write model_comparison.md and plot."""
+"""Score every saved model in models/ on one test split; write model_comparison.md and plots."""
 import time
 
 import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.metrics import precision_recall_curve
 
 import autoencoder_model
 import clustering_model
 from train_model import (
     ANALYSIS_DIR,
+    BASELINE,
+    INK_MUTED,
     INK_SECONDARY,
     MODELS_DIR,
     PROCESSED_DIR,
+    SURFACE,
     TARGET_FPR,
     THRESHOLD,
     build_matrix,
@@ -23,6 +27,7 @@ from train_model import (
     positive_proba,
     savefig,
     split_by_domain,
+    thin,
 )
 
 # (file stem in models/, display name, family)
@@ -37,6 +42,14 @@ MODELS = [
 # Chart colours per model family.
 FAMILY_COLORS = {"Supervised": "#2a78d6", "Clustering": "#eb6834",
                  "Anomaly detection": "#1baf7a"}
+# One color per model for the precision-recall curves: slots 1-6 in MODELS
+# order (validated adjacent pairs, light mode), so a model keeps its color
+# whichever models are present. LightGBM and Logistic Regression match their
+# colors in train_model.py's curves. Slots 3-5 are below 3:1 contrast on the
+# surface, so the legend names every line and the report has the table.
+MODEL_COLORS = {"LightGBM": "#2a78d6", "Logistic Regression": "#eb6834",
+                "Char n-gram + LogReg": "#1baf7a", "K-Means": "#eda100",
+                "HDBSCAN": "#e87ba4", "Autoencoder": "#008300"}
 # (column, panel title, higher is better)
 PLOT_METRICS = [
     ("pr_auc", "PR-AUC", True),
@@ -91,6 +104,37 @@ def plot_comparison(results: pd.DataFrame) -> None:
     savefig(fig, "model_comparison.png")
 
 
+def plot_pr_curves(y_test: pd.Series, probas: dict, results: pd.DataFrame) -> None:
+    # Every model's precision-recall curve on one axis. The legend follows
+    # `results` (best PR-AUC first) so it reads as a ranking; a dot marks where
+    # each model sits at THRESHOLD. Steps rather than straight segments, since
+    # PR-AUC (average precision) is the area under the step curve - straight
+    # lines would overstate the clustering models, which have few distinct scores.
+    fig, ax = plt.subplots(figsize=(10, 5.5))
+    lowest = 1.0
+    for name in results.index:
+        precision, recall, _ = precision_recall_curve(y_test, probas[name])
+        lowest = min(lowest, precision.min())
+        recall, precision = thin(recall, precision)
+        color = MODEL_COLORS[name]
+        ax.plot(recall, precision, color=color, linewidth=2, drawstyle="steps-post",
+                label=f"{name} (PR-AUC {results.loc[name, 'pr_auc']:.3f})")
+        ax.plot(results.loc[name, "recall"], results.loc[name, "precision"], "o", color=color,
+                markersize=7, markeredgecolor=SURFACE, markeredgewidth=1.5, zorder=3)
+
+    chance = y_test.mean()
+    ax.axhline(chance, color=BASELINE, linewidth=1, linestyle="--",
+               label=f"Chance ({chance:.2f} = phishing share)")
+    ax.plot([], [], "o", color=INK_MUTED, markersize=7, label=f"Threshold {THRESHOLD}")
+    # Precision never falls far below the phishing share, so the y-axis starts
+    # at the lowest tenth any curve reaches instead of 0.
+    ax.set(title="Precision-recall curves (test split)", xlabel="Recall", ylabel="Precision",
+           xlim=(0, 1), ylim=(np.floor(min(lowest, chance) * 10) / 10, 1.01))
+    # Outside the axes: a weak model's curve can cross any corner of the plot.
+    ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1))
+    savefig(fig, "model_pr_curves.png")
+
+
 def main() -> None:
     """Score all available models, rank them, and write the plot and markdown report."""
     start = time.perf_counter()
@@ -99,7 +143,7 @@ def main() -> None:
     del df
     log(f"Test split: {len(test)} rows", start)
 
-    rows, macro, by_source_f1, skipped = {}, {}, {}, []
+    rows, macro, by_source_f1, probas, skipped = {}, {}, {}, {}, []
     for stem, name, family in MODELS:
         path = MODELS_DIR / f"{stem}.joblib"
         if not path.exists():
@@ -107,6 +151,7 @@ def main() -> None:
             print(f"skipping {name}: {path} not found")
             continue
         proba = score(stem, joblib.load(path), test)
+        probas[name] = proba
         rows[name] = {"family": family, **evaluate(test["label"], proba)}
         macro[name] = per_class_table(test["label"], proba).loc["macro avg", "f1"]
         by_source_f1[name] = per_source_table(test, proba)["f1"]
@@ -127,6 +172,7 @@ def main() -> None:
     print()
     print(by_source.to_string(float_format="{:.4f}".format))
     plot_comparison(results)
+    plot_pr_curves(test["label"], probas, results)
 
     best = {col: metrics[col].idxmax() for col in HIGHER_IS_BETTER}
     best |= {col: metrics[col].idxmin() for col in LOWER_IS_BETTER}
@@ -184,8 +230,12 @@ def main() -> None:
         "not across columns.\n",
         by_source.to_markdown(floatfmt=".4f"),
         "",
-        "## Plot\n",
+        "## Plots\n",
         "![Model comparison](plots/model_comparison.png)\n",
+        "Precision-recall curve of every model on the test split. PR-AUC is the area under "
+        f"each curve; dots mark each model's operating point at threshold {THRESHOLD}, and the "
+        "dashed line is the precision of a random model (the phishing share).\n",
+        "![Precision-recall curves](plots/model_pr_curves.png)\n",
         "## Caveats\n",
         "- The families answer different questions. The supervised models learn the label "
         "directly; the clustering and autoencoder models learn structure without it and only "
