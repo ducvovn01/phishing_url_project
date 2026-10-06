@@ -1,0 +1,149 @@
+{
+ "tp": 163915,
+ "tn": 137749,
+ "fp": 15234,
+ "fn": 15871,
+ "n": 332769,
+ "by_source": {
+  "harisudhan411": {
+   "legit_rows": 6919,
+   "fp_rate": 0.08295996531290649,
+   "phish_rows": 40686,
+   "fn_rate": 0.16049746841665438
+  },
+  "mitake": {
+   "legit_rows": 118347,
+   "fp_rate": 0.10569765182049397,
+   "phish_rows": 55208,
+   "fn_rate": 0.04664179104477612
+  },
+  "phiusiil": {
+   "legit_rows": 26950,
+   "fp_rate": 0.07565862708719852,
+   "phish_rows": 13992,
+   "fn_rate": 0.27522870211549455
+  },
+  "semihguner": {
+   "legit_rows": 767,
+   "fp_rate": 0.14602346805736635,
+   "phish_rows": 69900,
+   "fn_rate": 0.04170243204577968
+  }
+ },
+ "shapes": {
+  "all_legit": {
+   "has_path": 0.5531333546864684,
+   "has_query": 0.1269748926351294,
+   "starts_www": 0.05367916696626423,
+   "short_host": 0.3360504108299615,
+   "ip_host": 4.5756718066713295e-05,
+   "has_digits": 0.35556891942241947,
+   "long_url": 0.12003948151101757,
+   "com_tld": 0.6673878796990516
+  },
+  "fp": {
+   "has_path": 0.44374425626887226,
+   "has_query": 0.05152947354601549,
+   "starts_www": 0.024025206774320598,
+   "short_host": 0.3740317710384666,
+   "ip_host": 0.0001312852829197847,
+   "has_digits": 0.2959170277011947,
+   "long_url": 0.15458842063804648,
+   "com_tld": 0.6388341866876723
+  },
+  "all_phish": {
+   "has_path": 0.37321037233154974,
+   "has_query": 0.08643609624776123,
+   "starts_www": 0.06216279354343497,
+   "short_host": 0.14082854059826683,
+   "ip_host": 0.020107238605898123,
+   "has_digits": 0.43215823256538327,
+   "long_url": 0.11578209649249664,
+   "com_tld": 0.4119175019189481
+  },
+  "fn": {
+   "has_path": 0.17497322159914308,
+   "has_query": 0.017705248566567956,
+   "starts_www": 0.06741856215739399,
+   "short_host": 0.14315418058093377,
+   "ip_host": 0.0,
+   "has_digits": 0.23615399155692773,
+   "long_url": 0.013105664419381262,
+   "com_tld": 0.6486043727553399
+  }
+ },
+ "fp_top_tld": {
+  "com": 0.6388,
+  "net": 0.0485,
+  "com.br": 0.0368,
+  "org": 0.0235,
+  "ru": 0.0174,
+  "info": 0.0124,
+  "pl": 0.0095,
+  "gov.br": 0.0091
+ },
+ "fn_top_tld": {
+  "com": 0.6486,
+  "org": 0.0715,
+  "net": 0.0417,
+  "cz": 0.0187,
+  "co.uk": 0.0135,
+  "ru": 0.0131,
+  "de": 0.0106,
+  "io": 0.0103
+ },
+ "legit_top_tld": {
+  "com": 0.6674,
+  "org": 0.0904,
+  "net": 0.032,
+  "edu": 0.0246,
+  "ca": 0.0148,
+  "co.uk": 0.0131,
+  "de": 0.0111,
+  "gov": 0.009
+ },
+ "phish_top_tld": {
+  "com": 0.4119,
+  "org": 0.103,
+  "net": 0.0518,
+  "cn": 0.039,
+  "top": 0.0382,
+  "": 0.0211,
+  "xyz": 0.0206,
+  "io": 0.0139
+ },
+ "fp_proba_quantiles": [
+  0.548,
+  0.767,
+  0.973
+ ],
+ "fn_proba_quantiles": [
+  0.022,
+  0.199,
+  0.442
+ ],
+ "fp_top_domains": {
+  "facebook.com": 2549,
+  "distractify.com": 871,
+  "correios.com.br": 421,
+  "ebay.com": 103,
+  "caixa.gov.br": 91,
+  "onedio.com": 86,
+  "olx.pl": 84,
+  "youtube.com": 75
+ },
+ "fn_top_domains": {
+  "000webhostapp.com": 1125,
+  "duckdns.org": 359,
+  "babinet.cz": 267,
+  "myqcloud.com": 174,
+  "ngrok.io": 115,
+  "yam.com": 110,
+  "ply.gg": 104,
+  "googleapis.com": 77
+ },
+ "fp_domains_distinct": 8426,
+ "fn_domains_distinct": 11385,
+ "fp_brand_match_share": 0.22692661152684784,
+ "fn_brand_sim_ge_085": 0.05784134585092307
+}

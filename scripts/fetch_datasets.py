@@ -1,3 +1,4 @@
+"""Download the four raw datasets (HF, Kaggle, UCI) into data/raw/. Reads credentials from .env."""
 import os
 import sys
 from pathlib import Path
@@ -11,6 +12,7 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 
 def _require_env(var_name: str, source_hint: str) -> str:
+    """Return the env var, or exit with a hint on where to get it."""
     value = os.environ.get(var_name)
     if not value:
         sys.exit(
@@ -22,7 +24,7 @@ def _require_env(var_name: str, source_hint: str) -> str:
 
 
 def fetch_mitake() -> None:
-    # Mitake/PhishingURLsANDBenignURLs
+    """Fetch Mitake/PhishingURLsANDBenignURLs from Hugging Face to mitake.csv."""
     import pandas as pd
     from datasets import load_dataset
 
@@ -39,7 +41,7 @@ def fetch_mitake() -> None:
 
 
 def fetch_semihguner() -> None:
-    # semihGuner2002/PhishingURLsDataset
+    """Fetch the gated semihGuner2002/PhishingURLsDataset (needs HF_TOKEN) to parquet."""
     import pandas as pd
     from datasets import load_dataset
 
@@ -62,7 +64,7 @@ def fetch_semihguner() -> None:
 
 
 def fetch_harisudhan411() -> None:
-    # harisudhan411/phishing-and-legitimate-urls
+    """Fetch harisudhan411/phishing-and-legitimate-urls from Kaggle to a CSV."""
     import zipfile
 
     import pandas as pd
@@ -108,12 +110,11 @@ def fetch_harisudhan411() -> None:
 
 
 def fetch_phiusiil() -> None:
-    # PhiUSIIL Phishing URL Dataset (UCI ML Repo, id=967)
+    """Fetch the PhiUSIIL dataset (UCI id 967): URL, TLD and label columns."""
     import pandas as pd
     from ucimlrepo import fetch_ucirepo
 
-    # Item access rather than ds.data.features: ucimlrepo's dotdict maps
-    # attribute access to dict.get, so every attribute is typed as optional.
+    # Item access: attribute access on ucimlrepo's dotdict is typed as optional.
     data = fetch_ucirepo(id=967)["data"]
     df = pd.concat(
         [data["features"][["URL", "TLD"]], data["targets"][["label"]]], axis=1

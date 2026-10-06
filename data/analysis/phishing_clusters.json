@@ -1,0 +1,488 @@
+{
+ "k": 4,
+ "grid": [
+  {
+   "k": 2,
+   "silhouette": 0.5377619553092607,
+   "davies_bouldin": 1.427526704540888,
+   "inertia": 10591057.11487937
+  },
+  {
+   "k": 3,
+   "silhouette": 0.2995854234434112,
+   "davies_bouldin": 1.7912859534966312,
+   "inertia": 9349838.327926895
+  },
+  {
+   "k": 4,
+   "silhouette": 0.2826856117377856,
+   "davies_bouldin": 1.5216938415483978,
+   "inertia": 8325957.985870786
+  },
+  {
+   "k": 5,
+   "silhouette": 0.26157417504791075,
+   "davies_bouldin": 1.435148694696855,
+   "inertia": 7500052.752574106
+  },
+  {
+   "k": 6,
+   "silhouette": 0.2603335543554656,
+   "davies_bouldin": 1.6471129416170334,
+   "inertia": 7145046.470762055
+  },
+  {
+   "k": 7,
+   "silhouette": 0.2656421695432171,
+   "davies_bouldin": 1.5454982405530338,
+   "inertia": 6725647.797270441
+  },
+  {
+   "k": 8,
+   "silhouette": 0.2814015724458776,
+   "davies_bouldin": 1.1480890506923744,
+   "inertia": 5942836.5507603455
+  },
+  {
+   "k": 10,
+   "silhouette": 0.20213010724915945,
+   "davies_bouldin": 1.3415623762062432,
+   "inertia": 5335207.325952509
+  },
+  {
+   "k": 12,
+   "silhouette": 0.18224023601657077,
+   "davies_bouldin": 1.2434757930827876,
+   "inertia": 4551126.103656871
+  }
+ ],
+ "stability_ari": [
+  0.9974403942630773,
+  0.9991226961503938,
+  0.999532588793114
+ ],
+ "n_rows": 647716,
+ "clusters": {
+  "0": {
+   "stability_jaccard": [
+    0.999,
+    1.0,
+    1.0
+   ],
+   "rows": 392613,
+   "share": 0.60614991755646,
+   "label_phishing_share_fit": 1.0,
+   "top_features": [
+    {
+     "feature": "url_length",
+     "z": -0.5720703132824831,
+     "cluster_mean": 20.624179535573198,
+     "overall_mean": 39.20036404844098,
+     "cluster_median": 20.0,
+     "overall_median": 25.0
+    },
+    {
+     "feature": "path_length",
+     "z": -0.5447900185982741,
+     "cluster_mean": 1.5141729896870455,
+     "overall_mean": 10.725169673128347,
+     "cluster_median": 0.0,
+     "overall_median": 1.0
+    },
+    {
+     "feature": "dot_count",
+     "z": -0.5104530838015943,
+     "cluster_mean": 1.4399293961228996,
+     "overall_mean": 2.1501290689129187,
+     "cluster_median": 1.0,
+     "overall_median": 2.0
+    }
+   ],
+   "source_share": {
+    "semihguner": 0.5,
+    "harisudhan411": 0.207,
+    "mitake": 0.195,
+    "phiusiil": 0.098
+   },
+   "top_tld": {
+    "com": 0.399,
+    "net": 0.09,
+    "top": 0.055,
+    "cn": 0.048,
+    "xyz": 0.032
+   },
+   "brand_sim_mean": 0.5840767025947571,
+   "exact_brand_share": 0.0465751261420279,
+   "kw_share": 0.019528135848787483,
+   "test_rows": 199659,
+   "test_phishing_share": 0.5403913672812145,
+   "test_legit_share_of_all_legit": 0.5998378904845636,
+   "examples": [
+    "wanhasavonlinna.fi",
+    "bhh-cl.com",
+    "bayitl-yukle.xyz",
+    "raukenlkjhriydvnuiyqp.xyz/"
+   ],
+   "feature_z": {
+    "url_length": -0.5720703132824831,
+    "hostname_length": -0.19833979367748997,
+    "path_length": -0.5447900185982741,
+    "query_length": -0.2795846505773131,
+    "dot_count": -0.5104530838015943,
+    "hyphen_count": -0.2280494065042879,
+    "digit_count": -0.4508468875789331,
+    "at_count": -0.10157939601668067,
+    "underscore_count": -0.20685005521308955,
+    "percent_count": -0.09068384198073297,
+    "equals_count": -0.2644461521570513,
+    "ampersand_count": -0.18624798452615965,
+    "digit_ratio": -0.3242973695459537,
+    "subdomain_count": -0.28628187435199504,
+    "path_depth": -0.5084326643392443,
+    "is_ip_hostname": -0.15671851544687393,
+    "has_port": -0.06169455120753978,
+    "has_punycode": 0.029161521039026892,
+    "suspicious_keyword_count": -0.27154895223737036,
+    "hostname_entropy": -0.11277405082774483
+   },
+   "raw_medians": {
+    "url_length": 20.0,
+    "hostname_length": 18.0,
+    "path_length": 0.0,
+    "query_length": 0.0,
+    "dot_count": 1.0,
+    "hyphen_count": 0.0,
+    "digit_count": 0.0,
+    "at_count": 0.0,
+    "underscore_count": 0.0,
+    "percent_count": 0.0,
+    "equals_count": 0.0,
+    "ampersand_count": 0.0,
+    "digit_ratio": 0.0,
+    "subdomain_count": 0.0,
+    "path_depth": 0.0,
+    "is_ip_hostname": 0.0,
+    "has_port": 0.0,
+    "has_punycode": 0.0,
+    "suspicious_keyword_count": 0.0,
+    "hostname_entropy": 3.499227547132693
+   }
+  },
+  "1": {
+   "stability_jaccard": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "rows": 15112,
+   "share": 0.023331213062515052,
+   "label_phishing_share_fit": 1.0,
+   "top_features": [
+    {
+     "feature": "is_ip_hostname",
+     "z": 6.1991712453034165,
+     "cluster_mean": 0.9722075172048703,
+     "overall_mean": 0.02397192596755368,
+     "cluster_median": 1.0,
+     "overall_median": 0.0
+    },
+    {
+     "feature": "digit_ratio",
+     "z": 3.739314413694521,
+     "cluster_mean": 0.6227587187407502,
+     "overall_mean": 0.07093171436894724,
+     "cluster_median": 0.75,
+     "overall_median": 0.0
+    },
+    {
+     "feature": "has_port",
+     "z": 2.2100713807615366,
+     "cluster_mean": 0.1396241397564849,
+     "overall_mean": 0.003791785288614146,
+     "cluster_median": 0.0,
+     "overall_median": 0.0
+    }
+   ],
+   "source_share": {
+    "semihguner": 0.583,
+    "mitake": 0.3,
+    "harisudhan411": 0.11,
+    "phiusiil": 0.007
+   },
+   "top_tld": {
+    "(none)": 0.973,
+    "com": 0.007,
+    "org": 0.004,
+    "net": 0.004,
+    "biz": 0.003
+   },
+   "brand_sim_mean": 0.4107415974140167,
+   "exact_brand_share": 0.005293806246691371,
+   "kw_share": 0.06001852832186342,
+   "test_rows": 3597,
+   "test_phishing_share": 0.9927717542396441,
+   "test_legit_share_of_all_legit": 0.00016995352424779224,
+   "examples": [
+    "27.102.107.233",
+    "212.114.52.186",
+    "45.66.131.182/",
+    "9.238.181.101"
+   ],
+   "feature_z": {
+    "url_length": -0.617702114926415,
+    "hostname_length": -0.9018431130500848,
+    "path_length": -0.0928468898095705,
+    "query_length": -0.16423207155499236,
+    "dot_count": 0.979598107861603,
+    "hyphen_count": -0.582818699911467,
+    "digit_count": 1.5898879079538222,
+    "at_count": 0.1495839375135177,
+    "underscore_count": -0.13590085105842328,
+    "percent_count": -0.08650783427573264,
+    "equals_count": -0.17896376749835272,
+    "ampersand_count": -0.1806242854618354,
+    "digit_ratio": 3.739314413694521,
+    "subdomain_count": -0.7207262646616613,
+    "path_depth": -0.06761572887722586,
+    "is_ip_hostname": 6.1991712453034165,
+    "has_port": 2.2100713807615366,
+    "has_punycode": -0.06846528428874833,
+    "suspicious_keyword_count": -0.16566410543878138,
+    "hostname_entropy": -2.1233461392129067
+   },
+   "raw_medians": {
+    "url_length": 15.0,
+    "hostname_length": 13.0,
+    "path_length": 0.0,
+    "query_length": 0.0,
+    "dot_count": 3.0,
+    "hyphen_count": 0.0,
+    "digit_count": 11.0,
+    "at_count": 0.0,
+    "underscore_count": 0.0,
+    "percent_count": 0.0,
+    "equals_count": 0.0,
+    "ampersand_count": 0.0,
+    "digit_ratio": 0.75,
+    "subdomain_count": 0.0,
+    "path_depth": 0.0,
+    "is_ip_hostname": 1.0,
+    "has_port": 0.0,
+    "has_punycode": 0.0,
+    "suspicious_keyword_count": 0.0,
+    "hostname_entropy": 2.66122625626979
+   }
+  },
+  "2": {
+   "stability_jaccard": [
+    1.0,
+    0.999,
+    1.0
+   ],
+   "rows": 31900,
+   "share": 0.04924997992947527,
+   "label_phishing_share_fit": 1.0,
+   "top_features": [
+    {
+     "feature": "equals_count",
+     "z": 3.6872815244097596,
+     "cluster_mean": 3.295266457680251,
+     "overall_mean": 0.20306276207473645,
+     "cluster_median": 2.0,
+     "overall_median": 0.0
+    },
+    {
+     "feature": "query_length",
+     "z": 3.577471498944986,
+     "cluster_mean": 114.32181818181819,
+     "overall_mean": 6.561993219250412,
+     "cluster_median": 76.0,
+     "overall_median": 0.0
+    },
+    {
+     "feature": "ampersand_count",
+     "z": 3.529237243809683,
+     "cluster_mean": 2.4423510971786833,
+     "overall_mean": 0.12183117292146559,
+     "cluster_median": 1.0,
+     "overall_median": 0.0
+    }
+   ],
+   "source_share": {
+    "mitake": 0.549,
+    "semihguner": 0.29,
+    "harisudhan411": 0.093,
+    "phiusiil": 0.068
+   },
+   "top_tld": {
+    "com": 0.559,
+    "net": 0.053,
+    "org": 0.029,
+    "(none)": 0.028,
+    "mx": 0.024
+   },
+   "brand_sim_mean": 0.6361931562423706,
+   "exact_brand_share": 0.12912225705329153,
+   "kw_share": 0.5443887147335423,
+   "test_rows": 14127,
+   "test_phishing_share": 0.6389183832377716,
+   "test_legit_share_of_all_legit": 0.03334357412261493,
+   "examples": [
+    "docs.google.com/presentation/d/e/2PACX-1vTpV8kEfzd1Hm1LoH2US9sxuckTZLiCdT8C190GbKHFxn_F1_z",
+    "hallitsemallatake0.southchandlerhomesforsale.com/rates.php?q=EWM7OFOqTiYZPZgMKkK23s&vk=Z8A",
+    "https://coxcoxx.webcindario.com/cox.full/cox.full/Zo/stepCoxMail/log/sycho/BillingID.html?",
+    "secure.runescape.com.d.weblagon.loginforn.com/mood/?/&amp;amp;=amp;amp;ssl=0"
+   ],
+   "feature_z": {
+    "url_length": 2.4537346897246755,
+    "hostname_length": -0.07521129597256128,
+    "path_length": 1.354469970032136,
+    "query_length": 3.577471498944986,
+    "dot_count": 1.4906617833815923,
+    "hyphen_count": 0.824974781659744,
+    "digit_count": 1.941287486909109,
+    "at_count": 0.5231770230155061,
+    "underscore_count": 2.362709374934123,
+    "percent_count": 1.330326033044823,
+    "equals_count": 3.6872815244097596,
+    "ampersand_count": 3.529237243809683,
+    "digit_ratio": 0.7309377268293054,
+    "subdomain_count": 0.31288437952150233,
+    "path_depth": 1.3855303215124868,
+    "is_ip_hostname": 0.014406371284443295,
+    "has_port": -0.03823227081204783,
+    "has_punycode": -0.0523648369657421,
+    "suspicious_keyword_count": 1.680711327538453,
+    "hostname_entropy": -0.16656432135137506
+   },
+   "raw_medians": {
+    "url_length": 150.0,
+    "hostname_length": 17.0,
+    "path_length": 26.0,
+    "query_length": 76.0,
+    "dot_count": 4.0,
+    "hyphen_count": 1.0,
+    "digit_count": 20.0,
+    "at_count": 0.0,
+    "underscore_count": 1.0,
+    "percent_count": 0.0,
+    "equals_count": 2.0,
+    "ampersand_count": 1.0,
+    "digit_ratio": 0.14,
+    "subdomain_count": 1.0,
+    "path_depth": 3.0,
+    "is_ip_hostname": 0.0,
+    "has_port": 0.0,
+    "has_punycode": 0.0,
+    "suspicious_keyword_count": 1.0,
+    "hostname_entropy": 3.427333493898265
+   }
+  },
+  "3": {
+   "stability_jaccard": [
+    0.998,
+    0.999,
+    1.0
+   ],
+   "rows": 208091,
+   "share": 0.32126888945154974,
+   "label_phishing_share_fit": 1.0,
+   "top_features": [
+    {
+     "feature": "path_length",
+     "z": 0.8269802813514341,
+     "cluster_mean": 23.75219495316953,
+     "overall_mean": 10.725169673128347,
+     "cluster_median": 18.0,
+     "overall_median": 1.0
+    },
+    {
+     "feature": "path_depth",
+     "z": 0.7517896751073713,
+     "cluster_mean": 2.0323560365417053,
+     "overall_mean": 0.9294953343749421,
+     "cluster_median": 2.0,
+     "overall_median": 0.0
+    },
+    {
+     "feature": "url_length",
+     "z": 0.7480516681035055,
+     "cluster_mean": 53.74723558443181,
+     "overall_mean": 39.20036404844098,
+     "cluster_median": 45.0,
+     "overall_median": 25.0
+    }
+   ],
+   "source_share": {
+    "mitake": 0.459,
+    "semihguner": 0.267,
+    "harisudhan411": 0.153,
+    "phiusiil": 0.121
+   },
+   "top_tld": {
+    "com": 0.442,
+    "net": 0.043,
+    "cn": 0.041,
+    "top": 0.028,
+    "ru": 0.026
+   },
+   "brand_sim_mean": 0.6258820295333862,
+   "exact_brand_share": 0.07992657058690669,
+   "kw_share": 0.20060454320465565,
+   "test_rows": 115386,
+   "test_phishing_share": 0.5138838333939992,
+   "test_legit_share_of_all_legit": 0.36664858186857363,
+   "examples": [
+    "rr-medvezonok.ru/about/inst3.exe",
+    "https://fb-restriction-case-646fa.firebaseapp.com/",
+    "paypal.login.mx.isaacjipsyproducts.com/",
+    "microsoft-104208.weeblysite.com/"
+   ],
+   "feature_z": {
+    "url_length": 0.7480516681035055,
+    "hostname_length": 0.451238520075534,
+    "path_length": 0.8269802813514341,
+    "query_length": -0.008990765260849194,
+    "dot_count": 0.6634343585004531,
+    "hyphen_count": 0.34612752254534934,
+    "digit_count": 0.43757246673632644,
+    "at_count": 0.10058835754741016,
+    "underscore_count": 0.037941695355268076,
+    "percent_count": -0.026557798323682765,
+    "equals_count": -0.05331697688703421,
+    "ampersand_count": -0.17650784477397158,
+    "digit_ratio": 0.2282555720523186,
+    "subdomain_count": 0.5445146072621638,
+    "path_depth": 0.7517896751073713,
+    "is_ip_hostname": -0.15671851544687393,
+    "has_port": -0.038237628892735416,
+    "has_punycode": -0.0420205899549559,
+    "suspicious_keyword_count": 0.2667221234829228,
+    "hostname_entropy": 0.3925108107728241
+   },
+   "raw_medians": {
+    "url_length": 45.0,
+    "hostname_length": 23.0,
+    "path_length": 18.0,
+    "query_length": 0.0,
+    "dot_count": 3.0,
+    "hyphen_count": 0.0,
+    "digit_count": 2.0,
+    "at_count": 0.0,
+    "underscore_count": 0.0,
+    "percent_count": 0.0,
+    "equals_count": 0.0,
+    "ampersand_count": 0.0,
+    "digit_ratio": 0.046875,
+    "subdomain_count": 1.0,
+    "path_depth": 2.0,
+    "is_ip_hostname": 0.0,
+    "has_port": 0.0,
+    "has_punycode": 0.0,
+    "suspicious_keyword_count": 0.0,
+    "hostname_entropy": 3.681727678869736
+   }
+  }
+ },
+ "test_overall_phishing_share": 0.5402726816500335
+}

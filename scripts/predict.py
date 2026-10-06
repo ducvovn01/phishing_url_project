@@ -1,8 +1,5 @@
-# Score URLs with any saved model in models/ (see MODEL_NAMES).
-#
-# Features are built with extract_features.extract_features() and `tld` is
-# encoded with train_model.build_matrix() - the same code used at training
-# time - so a new URL is scored the same way the test split was.
+# Scores URLs with any saved model in models/ (see MODEL_NAMES).
+# Uses the training-time feature code, so new URLs are scored like the test split.
 #
 # Usage:
 #   python scripts/predict.py https://example.com paypal-login-verify.xyz/account
@@ -35,9 +32,9 @@ class PhishingDetector:
         self.threshold = bundle["threshold"] if threshold is None else threshold
 
     def _feature_proba(self, feats: pd.DataFrame):
-        # Clustering and autoencoder bundles carry their own preprocessing and
-        # probability mapping. Imported here so scoring with the other models
-        # doesn't pay for loading torch.
+        """Phishing probability from a feature table, using the right bundle type."""
+        # Clustering and autoencoder bundles carry their own preprocessing; imported
+        # lazily so other models don't load torch.
         if "cluster_proba" in self.bundle:
             from clustering_model import bundle_proba
             return bundle_proba(self.bundle, feats)
@@ -64,6 +61,7 @@ class PhishingDetector:
 
 
 def main() -> None:
+    """Command-line entry point: score URLs from arguments and/or --file, print a table."""
     parser = argparse.ArgumentParser(description="Score URLs as phishing or legitimate.")
     parser.add_argument("urls", nargs="*", help="URLs to score")
     parser.add_argument("--file", type=Path, help="text file with one URL per line")

@@ -1,5 +1,4 @@
-# EDA over the combined, deduplicated dataset. Saves all figures as .png into
-# data/analysis/plots/ and writes a written summary to data/analysis/eda_report.md.
+# EDA on the deduplicated dataset. Writes plots to data/analysis/plots/ and eda_report.md.
 import re
 from pathlib import Path
 
@@ -9,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 ANALYSIS_DIR = PROJECT_ROOT / "data" / "analysis"
 PLOTS_DIR = ANALYSIS_DIR / "plots"
@@ -20,6 +19,7 @@ IP_HOSTNAME_RE = re.compile(
 
 
 def savefig(fig, name: str) -> None:
+    """Save the figure into PLOTS_DIR and close it."""
     path = PLOTS_DIR / name
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -27,6 +27,7 @@ def savefig(fig, name: str) -> None:
 
 
 def get_hostname(url: str) -> str:
+    """Strip scheme, path, query, userinfo and port from a URL."""
     u = url.strip()
     u = re.sub(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", "", u)
     u = u.split("/", 1)[0]
@@ -37,11 +38,13 @@ def get_hostname(url: str) -> str:
 
 
 def get_tld(hostname: str) -> str:
+    """Return the last dot-separated label, or '' if none."""
     parts = hostname.rsplit(".", 1)
     return parts[-1] if len(parts) == 2 and parts[-1] else ""
 
 
 def main() -> None:
+    """Build all plots and the markdown EDA report."""
     PLOTS_DIR.mkdir(parents=True, exist_ok=True)
 
     df = pd.read_csv(PROCESSED_DIR / "combined_dataset.csv")
@@ -56,7 +59,7 @@ def main() -> None:
     n_null_label = df["label"].isna().sum()
     bad_label = ~df["label"].isin([0, 1])
     n_bad_label = bad_label.sum()
-    # crude "no dot at all" check as a proxy for malformed/unparseable host
+    # No-dot hostname as a proxy for a malformed host.
     hostnames = df["url"].fillna("").map(get_hostname)
     n_no_dot_host = (~hostnames.str.contains(r"\.")).sum()
 
@@ -102,11 +105,8 @@ def main() -> None:
     savefig(fig, "class_balance_by_source.png")
 
     # --- URL length distribution ---
-    # Shared bin edges across both classes: phishing has extreme outliers
-    # (max ~25,515 chars) vs legitimate (max ~2,073). Auto-sized bins per
-    # call would size off each class's own max, blowing out bin width for
-    # the class with the longer tail. Underlying data (url_len, full range)
-    # is untouched -- only the display x-axis is clipped for legibility.
+    # Shared bins for both classes (phishing max ~25,515 chars, legit ~2,073);
+    # only the display axis is clipped, the data is not.
     url_len = df["url"].fillna("").str.len()
     DISPLAY_MAX = 200
     bin_edges = np.linspace(0, DISPLAY_MAX, 51).tolist()  # 50 bins, width 4 chars
@@ -134,7 +134,7 @@ def main() -> None:
     )
     report_lines.append("")
 
-    # duplicate/overlap counts per source pair
+    # Duplicate counts per source pair
     dup_path = PROCESSED_DIR / "duplicates_removed.csv"
     report_lines.append("## Duplicate / overlap counts\n")
     dups = pd.read_csv(dup_path) if dup_path.exists() else None
@@ -224,8 +224,7 @@ def main() -> None:
     report_lines.append("")
 
     # Written summary of findings
-    # every figure below is recomputed from df/dups at run time (not hardcoded)
-    # so this section stays correct across re-runs with different source sets.
+    # All figures are computed from df/dups, not hardcoded.
     top_source = by_source.sum(axis=1).idxmax()
     skew_pp = abs(overall_pct.get(1, 0) - overall_pct.get(0, 0)) / 2
     majority_class = "phishing" if overall_pct.get(1, 0) >= overall_pct.get(0, 0) else "legitimate"

@@ -1,20 +1,4 @@
-# Character n-gram baseline: TF-IDF over 3-5 character substrings of the raw
-# URL, fed to a Logistic Regression.
-#
-# Unlike train_model.py it gets no hand-made features: every run of 3-5
-# characters in the URL (e.g. "ver", "erif", ".top/") is a feature, and the
-# model learns one weight per n-gram. It uses the same domain-grouped
-# train/test split and the same metrics as train_model.py, and scores the
-# saved LightGBM and Logistic Regression models on that test split for a
-# side-by-side table.
-#
-# URLs go through extract_features.preprocess_url() first (scheme stripped,
-# lowercased), to keep source formatting out of the input - same reason
-# has_protocol/uses_https are dropped in train_model.py. It lives there rather
-# than here so the pickled pipeline refers to an importable module, not
-# __main__.
-#
-# Writes models/char_ngram.joblib and data/analysis/char_ngram_report.md.
+"""Train a char n-gram TF-IDF LogReg; write models/char_ngram.joblib and its report."""
 import time
 
 import joblib
@@ -26,6 +10,7 @@ from sklearn.metrics import average_precision_score, confusion_matrix
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.pipeline import Pipeline
 
+# Defined in extract_features (not here) so the pickled pipeline imports cleanly, not via __main__.
 from extract_features import preprocess_url
 from train_model import (
     ANALYSIS_DIR,
@@ -44,15 +29,15 @@ from train_model import (
 )
 
 NGRAM_RANGE = (3, 5)
-# Hashing instead of a learned vocabulary: the train split has tens of
-# millions of distinct n-grams, and a vocabulary dict that size doesn't fit in
-# memory. Rare collisions (two n-grams sharing one column) are the trade-off.
+# Hashing, not a vocabulary: tens of millions of distinct n-grams won't fit in memory.
+# Trade-off: rare collisions (two n-grams share a column).
 N_FEATURES = 2 ** 20
 VAL_SIZE = 0.1  # share of train domains held out to pick C
 C_GRID = [1.0, 3.0, 10.0, 30.0]
 
 
 def ngram_hasher(analyzer="char") -> HashingVectorizer:
+    """Stateless char n-gram counter; URLs are scheme-stripped and lowercased first."""
     return HashingVectorizer(
         analyzer=analyzer,
         ngram_range=NGRAM_RANGE,
@@ -74,10 +59,10 @@ def build_char_ngram(C: float) -> Pipeline:
 
 
 def tune_C(urls: pd.Series, y: np.ndarray, groups: pd.Series, start: float):
+    """Choose C by validation PR-AUC on a domain-grouped holdout of train."""
     splitter = GroupShuffleSplit(n_splits=1, test_size=VAL_SIZE, random_state=RANDOM_STATE)
     fit_idx, val_idx = next(splitter.split(urls, groups=groups))
-    # Hashing is stateless, so the n-gram counts are computed once and only
-    # the TF-IDF weights and the classifier are fitted per C.
+    # Hashing is stateless: count once, refit only TF-IDF and the classifier per C.
     counts = ngram_hasher().transform(urls)
     tfidf = TfidfTransformer(sublinear_tf=True).fit(counts[fit_idx])
     X_fit, X_val = tfidf.transform(counts[fit_idx]), tfidf.transform(counts[val_idx])
@@ -92,9 +77,7 @@ def tune_C(urls: pd.Series, y: np.ndarray, groups: pd.Series, start: float):
 
 
 def top_ngrams(pipeline: Pipeline, urls: pd.Series, n: int = 15) -> pd.DataFrame:
-    """Weights of the most common n-grams in `urls`. The model only stores
-    hashed columns, so the n-gram text is recovered by hashing a vocabulary
-    of real n-grams and reading their columns' weights."""
+    """Weights of common n-grams in `urls`, found by hashing a real vocabulary to its columns."""
     vocab = CountVectorizer(
         analyzer="char", ngram_range=NGRAM_RANGE, preprocessor=preprocess_url, min_df=200,
     ).fit(urls).get_feature_names_out()
@@ -110,14 +93,7 @@ def top_ngrams(pipeline: Pipeline, urls: pd.Series, n: int = 15) -> pd.DataFrame
 
 
 def brand_substring_weights(pipeline: Pipeline) -> pd.DataFrame:
-    """Sum of the model's per-n-gram weights for a handful of well-known
-    brand names (typo and clean spelling), to check whether the char n-gram
-    model already picks up brand-impersonation signal on its own, without
-    the curated brand list in extract_features.compute_brand_similarity().
-    Decomposes each word into the model's real 3-5 char n-grams (not a
-    single hashed token, which would land on an unrelated column) and sums
-    their learned weights — a positive sum means the substring pattern
-    pushes the model's prediction toward phishing."""
+    """Summed n-gram weight per brand word (clean and typo); positive leans phishing."""
     analyzer = ngram_hasher().build_analyzer()
     token_hasher = ngram_hasher(analyzer=lambda s: [s])
     coef = pipeline.named_steps["model"].coef_[0]
@@ -132,10 +108,10 @@ def brand_substring_weights(pipeline: Pipeline) -> pd.DataFrame:
 
 
 def main() -> None:
+    """Tune, fit and evaluate the n-gram model against the saved models; write model and report."""
     start = time.perf_counter()
 
-    # Whole table, so split_by_domain() reproduces train_model.py's split
-    # exactly and the saved models can be scored on the same rows.
+    # Same whole-table split as train_model.py, so saved models score the same test rows.
     df = pd.read_parquet(PROCESSED_DIR / "features.parquet")
     train, test = split_by_domain(df)
     del df
@@ -160,6 +136,7 @@ def main() -> None:
     by_source = per_source_table(test, ngram_proba)
     by_class = per_class_table(test["label"], ngram_proba)
     cm =confusion_matrix(y_test, (ngram_proba >= THRESHOLD).astype(int))
+    # Sample of train keeps the vocabulary fit cheap.
     ngrams = top_ngrams(pipeline, train["url"].sample(300_000, random_state=RANDOM_STATE))
     brand_weights = brand_substring_weights(pipeline)
     print()

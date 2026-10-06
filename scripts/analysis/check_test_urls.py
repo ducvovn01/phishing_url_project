@@ -1,15 +1,19 @@
-# Scores the hand-written URLs in data/test_urls.csv with every saved model and
-# shows, per category, how many each model gets right. Rows marked "ambiguous"
-# (URL shorteners) have no right answer, so only their scores are listed.
+# Scores data/test_urls.csv with every saved model; prints accuracy per category.
+# "ambiguous" rows (URL shorteners) have no right answer, so only scores are listed.
 #
 # Usage:
-#   python scripts/check_test_urls.py              # summary + rows some model got wrong
-#   python scripts/check_test_urls.py --all        # every row
-#   python scripts/check_test_urls.py --file my_urls.csv   # columns: url,expected,category
+#   python scripts/analysis/check_test_urls.py              # summary + rows some model got wrong
+#   python scripts/analysis/check_test_urls.py --all        # every row
+#   python scripts/analysis/check_test_urls.py --file my_urls.csv   # columns: url,expected,category
 import argparse
 from pathlib import Path
 
 import pandas as pd
+
+import sys
+
+# Scripts import each other from scripts/, one level up.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from predict import MODEL_NAMES, PhishingDetector
 from train_model import MODELS_DIR, PROJECT_ROOT
@@ -19,6 +23,7 @@ EXPECTED_IS_PHISHING = {"phishing": True, "legitimate": False}
 
 
 def main() -> None:
+    """Score the test URLs with every model and print the summary and mistakes."""
     parser = argparse.ArgumentParser(description="Check every saved model against hand-labelled URLs.")
     parser.add_argument("--file", type=Path, default=PROJECT_ROOT / "data" / "test_urls.csv")
     parser.add_argument("--all", action="store_true", help="print every row, not only mistakes")
@@ -39,6 +44,7 @@ def main() -> None:
     pd.set_option("display.max_colwidth", 70)
     pd.set_option("display.max_rows", None)
 
+    # Per-category accuracy, plus ALL legitimate / ALL phishing / ALL rows.
     groups = cases.loc[labelled, ["category", "expected"]]
     summary = correct[labelled].groupby([groups["category"], groups["expected"]], sort=False).mean()
     summary.insert(0, "urls", groups.groupby(["category", "expected"], sort=False).size())

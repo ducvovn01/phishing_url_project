@@ -1,25 +1,8 @@
-# Clustering baselines: K-Means and HDBSCAN over the same hand-made URL
-# features as train_model.py (numeric ones only: `tld` has no meaningful
-# distance, and the protocol flags are left out for the same reason as there).
-#
-# Clustering never sees the label while it groups URLs. To compare it with the
-# classifiers, each cluster becomes a predictor: a URL's phishing probability
-# is the phishing share of its cluster in train. That way the same metrics as
-# train_model.py apply (evaluate(), per_class_table()), next to the usual
-# clustering scores:
-# - external, cluster vs label: ARI, NMI, homogeneity, completeness,
-#   V-measure, purity;
-# - internal, geometry only: silhouette, Davies-Bouldin, Calinski-Harabasz.
-#
-# - K-Means (MiniBatchKMeans) is fitted on all of train.
-# - HDBSCAN doesn't scale to a million rows, so it is fitted on a sample of
-#   train, and any other URL takes the cluster of its nearest sampled
-#   neighbour. HDBSCAN's noise points (-1) are kept as a group of their own,
-#   with their own phishing share.
-# K and min_cluster_size are picked by PR-AUC on a domain-grouped validation
-# split of train, like C in train_char_ngram.py; the test split is touched
-# once, for the final evaluation.
-#
+# K-Means and HDBSCAN baselines on the numeric URL features of train_model.py.
+# Labels are not used to cluster; a URL's phishing probability is its cluster's
+# phishing share in train, so the usual classifier metrics apply.
+# HDBSCAN is fitted on a train sample; other URLs take their nearest sample's cluster.
+# K / min_cluster_size are tuned by PR-AUC on a domain-grouped validation split.
 # Writes models/{kmeans,hdbscan}.joblib and data/analysis/clustering_report.md.
 import time
 
@@ -62,11 +45,10 @@ VAL_SIZE = 0.1  # share of train domains held out to pick K / min_cluster_size
 KMEANS_GRID = [2, 5, 10, 20, 50, 100]
 HDBSCAN_GRID = [25, 50, 100]  # min_cluster_size
 HDBSCAN_MIN_SAMPLES = 10
-# HDBSCAN runtime grows much faster than linearly: ~1 min for 50k rows here.
+# HDBSCAN runtime grows much faster than linearly, so fit on a sample.
 HDBSCAN_SAMPLE = 30_000
-# Cluster phishing shares are shrunk toward the overall share as if each
-# cluster had this many extra rows at that share, so a tiny cluster can't
-# claim a probability of exactly 0 or 1.
+# Smoothing: each cluster gets this many pseudo-rows at the overall share, so tiny
+# clusters never get probability 0 or 1.
 PRIOR_WEIGHT = 10
 SILHOUETTE_SAMPLE = 10_000  # silhouette is O(n^2) in memory
 PROFILE_COLUMNS = ["url_length", "path_length", "query_length", "dot_count",
@@ -74,9 +56,14 @@ PROFILE_COLUMNS = ["url_length", "path_length", "query_length", "dot_count",
 NOISE = -1
 
 
+# Brand features (FR3) were added after training; excluded to keep the same 20 features.
+BRAND_FEATURES = ["brand_similarity_score", "is_exact_brand_match"]
+
+
 def numeric_feature_columns(df: pd.DataFrame) -> list:
+    """Numeric feature columns: drops ids, protocol flags, `tld` and brand features."""
     return [c for c in df.columns
-            if c not in NON_FEATURE_COLUMNS + PROTOCOL_FEATURES + CATEGORICAL_FEATURES]
+            if c not in NON_FEATURE_COLUMNS + PROTOCOL_FEATURES + CATEGORICAL_FEATURES + BRAND_FEATURES]
 
 
 def bundle_proba(bundle: dict, rows: pd.DataFrame) -> np.ndarray:
@@ -86,8 +73,7 @@ def bundle_proba(bundle: dict, rows: pd.DataFrame) -> np.ndarray:
 
 
 def build_preprocess() -> Pipeline:
-    # Same scaling as the Logistic Regression in train_model.py: counts and
-    # lengths are heavy-tailed, and both algorithms work on raw distances.
+    # log1p then scaling: counts are heavy-tailed and both algorithms use distances.
     return Pipeline([
         ("log1p", FunctionTransformer(np.log1p)),
         ("scale", StandardScaler()),
@@ -95,21 +81,19 @@ def build_preprocess() -> Pipeline:
 
 
 def n_clusters(clusters: np.ndarray) -> int:
+    # Number of clusters, not counting noise.
     return len(set(clusters.tolist()) - {NOISE})
 
 
 def fit_kmeans(X: np.ndarray, k: int):
-    """Returns the fitted model (its predict() assigns new rows) and the
-    cluster of every row in X."""
+    """Return the fitted model and the cluster of every row in X."""
     model = MiniBatchKMeans(n_clusters=k, n_init=3, batch_size=4096,
                             random_state=RANDOM_STATE).fit(X)
     return model, model.labels_
 
 
 def fit_hdbscan(X: np.ndarray, min_cluster_size: int):
-    """Returns a 1-nearest-neighbour model that gives new rows the cluster of
-    their closest row in X (sklearn's HDBSCAN has no predict()), and the
-    cluster of every row in X."""
+    """Return a 1-NN assigner (sklearn's HDBSCAN has no predict()) and the clusters of X."""
     clusters = HDBSCAN(min_cluster_size=min_cluster_size, min_samples=HDBSCAN_MIN_SAMPLES,
                        copy=True, n_jobs=-1).fit_predict(X)
     assigner = KNeighborsClassifier(n_neighbors=1, n_jobs=-1).fit(X, clusters)
@@ -117,15 +101,18 @@ def fit_hdbscan(X: np.ndarray, min_cluster_size: int):
 
 
 def cluster_proba_map(clusters: np.ndarray, y: np.ndarray, prior: float) -> pd.Series:
+    # Smoothed phishing share per cluster id.
     stats = pd.DataFrame({"cluster": clusters, "label": y}).groupby("cluster")["label"]
     return (stats.sum() + PRIOR_WEIGHT * prior) / (stats.count() + PRIOR_WEIGHT)
 
 
 def cluster_to_proba(clusters: np.ndarray, proba_map: pd.Series, prior: float) -> np.ndarray:
+    # Unseen cluster ids get the prior.
     return pd.Series(clusters).map(proba_map).fillna(prior).to_numpy()
 
 
 def tune(fit, grid: list, param: str, X_fit, y_fit, X_val, y_val, start: float):
+    # Grid-search `param` by validation PR-AUC; return the best value and the results.
     prior = y_fit.mean()
     rows = []
     for value in grid:
@@ -145,9 +132,7 @@ def tune(fit, grid: list, param: str, X_fit, y_fit, X_val, y_val, start: float):
 
 
 def clustering_scores(X: np.ndarray, clusters: np.ndarray, y: np.ndarray) -> dict:
-    """External scores compare the clusters with the label (noise counts as
-    one more cluster); internal scores only look at the geometry, over the
-    non-noise rows."""
+    """External scores vs the label (noise is one more cluster); internal scores on non-noise rows."""
     homogeneity, completeness, v_measure = homogeneity_completeness_v_measure(y, clusters)
     scores = {
         "clusters": n_clusters(clusters),
@@ -157,7 +142,7 @@ def clustering_scores(X: np.ndarray, clusters: np.ndarray, y: np.ndarray) -> dic
         "homogeneity": homogeneity,
         "completeness": completeness,
         "v_measure": v_measure,
-        # Share of rows whose label is their cluster's majority label.
+        # Share of rows matching their cluster's majority label.
         "purity": pd.crosstab(clusters, y).max(axis=1).sum() / len(y),
         "silhouette": np.nan,
         "davies_bouldin": np.nan,
@@ -175,8 +160,7 @@ def clustering_scores(X: np.ndarray, clusters: np.ndarray, y: np.ndarray) -> dic
 
 
 def cluster_profile(rows: pd.DataFrame, clusters: np.ndarray, top: int = 15) -> pd.DataFrame:
-    """The largest clusters with their phishing share and median feature
-    values, in original units, to show what each cluster groups together."""
+    """Largest clusters with phishing share and median feature values (original units)."""
     grouped = rows.assign(cluster=clusters).groupby("cluster")
     profile = pd.concat([
         grouped.size().rename("rows"),
@@ -188,11 +172,11 @@ def cluster_profile(rows: pd.DataFrame, clusters: np.ndarray, top: int = 15) -> 
 
 
 def main() -> None:
+    """Tune and fit both clusterers, evaluate on test, save bundles and the report."""
     start = time.perf_counter()
     rng = np.random.default_rng(RANDOM_STATE)
 
-    # Whole table, so split_by_domain() reproduces train_model.py's split
-    # exactly and the saved LightGBM can be scored on the same rows.
+    # Whole table, so the split matches train_model.py exactly.
     df = pd.read_parquet(PROCESSED_DIR / "features.parquet")
     feature_cols = numeric_feature_columns(df)
     train, test = split_by_domain(df)
@@ -217,7 +201,7 @@ def main() -> None:
     kmeans_map = cluster_proba_map(kmeans_train_clusters, y_train, prior)
     log(f"Fitted K-Means on all of train with K={best_k}", start)
 
-    # --- HDBSCAN: tune min_cluster_size on a sample, refit on a new sample ---
+    # --- HDBSCAN: tune min_cluster_size on a sample, refit on a fresh sample ---
     log(f"Tuning HDBSCAN min_cluster_size over {HDBSCAN_GRID} "
         f"({HDBSCAN_SAMPLE} sampled rows)", start)
     tune_idx = rng.choice(len(X_fit), HDBSCAN_SAMPLE, replace=False)

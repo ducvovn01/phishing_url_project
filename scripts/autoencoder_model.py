@@ -1,18 +1,7 @@
-# Autoencoder anomaly detector over the same numeric URL features as
-# clustering_model.py.
-#
-# The autoencoder learns to compress and rebuild *legitimate* URLs only: it is
-# trained on the legitimate rows of train and never sees a phishing URL while
-# learning. A URL it rebuilds badly (high reconstruction error) looks unlike
-# the legitimate ones, and that error is its phishing score.
-#
-# The error has no fixed scale, so to report the same metrics as the other
-# models (evaluate(), per_class_table()) it is turned into a probability by a
-# one-feature logistic regression on log(error) (Platt scaling), fitted on a
-# domain-grouped validation split of train. That is the only step that sees
-# phishing labels, and it keeps the order of the scores: ROC-AUC and PR-AUC
-# are those of the raw error.
-#
+# Autoencoder anomaly detector on the numeric URL features of clustering_model.py.
+# Trained on legitimate train rows only; high reconstruction error means phishing-like.
+# Error is mapped to a probability by Platt scaling (logistic regression on log(error))
+# fitted on a validation split, the only step that sees phishing labels.
 # Writes models/autoencoder.joblib and data/analysis/autoencoder_report.md.
 import copy
 import time
@@ -51,8 +40,7 @@ EPS = 1e-12  # keeps log(error) finite for a perfectly rebuilt row
 
 def build_autoencoder(n_features: int, hidden: list = HIDDEN,
                       bottleneck: int = BOTTLENECK) -> nn.Sequential:
-    """Mirror-image encoder/decoder; linear output layer, since the inputs are
-    standard-scaled and can be negative."""
+    """Mirror-image encoder/decoder; linear output since scaled inputs can be negative."""
     sizes = [n_features, *hidden, bottleneck]
     layers: list[nn.Module] = []
     for a, b in zip(sizes, sizes[1:]):
@@ -78,12 +66,12 @@ def reconstruction_error(model: nn.Module, X: np.ndarray, device: torch.device,
 
 
 def error_feature(error: np.ndarray) -> np.ndarray:
+    """Column of log(error), the calibrator's single input."""
     return np.log(error + EPS).reshape(-1, 1)
 
 
 def train_autoencoder(X_fit: np.ndarray, X_val: np.ndarray, device: torch.device, start: float):
-    """Fits on X_fit, stops early on the validation loss over X_val, and
-    returns the best-epoch model and a per-epoch loss table."""
+    """Fit with early stopping on X_val loss; return the best-epoch model and loss history."""
     torch.manual_seed(RANDOM_STATE)
     model = build_autoencoder(X_fit.shape[1]).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
@@ -128,10 +116,11 @@ def bundle_proba(bundle: dict, rows: pd.DataFrame) -> np.ndarray:
 
 
 def main() -> None:
+    """Train on legitimate rows, calibrate, evaluate on test, save the bundle and report."""
     start = time.perf_counter()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Whole table, so split_by_domain() reproduces train_model.py's split.
+    # Whole table, so the split matches train_model.py.
     df = pd.read_parquet(PROCESSED_DIR / "features.parquet")
     feature_cols = numeric_feature_columns(df)
     train, test = split_by_domain(df)
@@ -144,8 +133,7 @@ def main() -> None:
     fit_legit = fit_idx[y_train[fit_idx] == 0]
     val_legit = val_idx[y_train[val_idx] == 0]
 
-    # Scaling is fitted on legitimate rows only too: phishing rows must not
-    # shape what "normal" looks like.
+    # Scaler also fitted on legitimate rows, so phishing does not shape "normal".
     preprocess = build_preprocess().fit(train[feature_cols].iloc[fit_legit])
     X_train = preprocess.transform(train[feature_cols])
     X_test = preprocess.transform(test[feature_cols])
@@ -161,7 +149,7 @@ def main() -> None:
 
     test_error = reconstruction_error(model, X_test, device)
     proba = calibrator.predict_proba(error_feature(test_error))[:, 1]
-    # The error level where the calibrated probability crosses THRESHOLD.
+    # Error at which the calibrated probability equals THRESHOLD (inverse of the logistic fit).
     a, b = calibrator.coef_[0][0], calibrator.intercept_[0]
     error_cutoff = float(np.exp((np.log(THRESHOLD / (1 - THRESHOLD)) - b) / a))
 
@@ -182,7 +170,7 @@ def main() -> None:
     joblib.dump({
         "preprocess": preprocess,  # log1p + scaling, fitted on legitimate train rows
         "feature_columns": feature_cols,
-        # Weights only, rebuilt with build_autoencoder() - see bundle_proba().
+        # Weights only; rebuilt by build_autoencoder() in bundle_proba().
         "state_dict": {k: v.cpu() for k, v in model.state_dict().items()},
         "hidden": HIDDEN,
         "bottleneck": BOTTLENECK,
