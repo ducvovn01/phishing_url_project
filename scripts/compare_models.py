@@ -1,14 +1,4 @@
-# Side-by-side comparison of every saved model on the same test split.
-#
-# Loads models/*.joblib as written by train_model.py, train_char_ngram.py,
-# clustering_model.py and autoencoder_model.py, scores the domain-grouped test
-# split from split_by_domain() with each, and applies the same metrics to all
-# of them (evaluate(), per_class_table(), per_source_table()). A model whose
-# file is missing is skipped. Nothing is refitted.
-#
-# Writes data/analysis/model_comparison.md,
-# data/analysis/plots/model_comparison.png and
-# data/analysis/plots/model_pr_curves.png.
+"""Score every saved model in models/ on one test split; write model_comparison.md and plots."""
 import time
 
 import joblib
@@ -49,7 +39,7 @@ MODELS = [
     ("hdbscan", "HDBSCAN", "Clustering"),
     ("autoencoder", "Autoencoder", "Anomaly detection"),
 ]
-# Categorical slots 1-3 of the chart palette (validated all-pairs, light mode).
+# Chart colours per model family.
 FAMILY_COLORS = {"Supervised": "#2a78d6", "Clustering": "#eb6834",
                  "Anomaly detection": "#1baf7a"}
 # One color per model for the precision-recall curves: slots 1-6 in MODELS
@@ -76,6 +66,7 @@ LOWER_IS_BETTER = ["mae", "mse_brier", "rmse", "log_loss"]
 
 
 def score(stem: str, bundle: dict, test: pd.DataFrame) -> np.ndarray:
+    """Phishing probabilities for `test` from a saved bundle, using that model's own input."""
     if stem == "char_ngram":
         return positive_proba(bundle["model"], test["url"])
     if stem in ("kmeans", "hdbscan"):
@@ -87,8 +78,8 @@ def score(stem: str, bundle: dict, test: pd.DataFrame) -> np.ndarray:
 
 
 def plot_comparison(results: pd.DataFrame) -> None:
-    # Same model order in every panel (best PR-AUC on top), so a row can be
-    # followed across panels; color marks the model family.
+    """One bar panel per metric in PLOT_METRICS, models sorted as in `results`."""
+    # Same order in every panel (best PR-AUC on top); colour marks the family.
     order = results.index[::-1]
     colors = [FAMILY_COLORS[f] for f in results.loc[order, "family"]]
     fig, axes = plt.subplots(2, 3, figsize=(13, 6.5), sharey=True)
@@ -99,7 +90,7 @@ def plot_comparison(results: pd.DataFrame) -> None:
             ax.text(value, y, f" {value:.3f}", va="center", color=INK_SECONDARY, fontsize=8)
         ax.grid(axis="y", visible=False)
         ax.tick_params(axis="y", length=0)
-        if higher:  # bounded by 1; the extra room is for the value labels
+        if higher:  # bounded by 1; extra room for value labels
             ax.set_xlim(min(0.0, values.min()), 1.15)
             ax.set_xticks(np.arange(0, 1.01, 0.2))
         else:
@@ -145,6 +136,7 @@ def plot_pr_curves(y_test: pd.Series, probas: dict, results: pd.DataFrame) -> No
 
 
 def main() -> None:
+    """Score all available models, rank them, and write the plot and markdown report."""
     start = time.perf_counter()
     df = pd.read_parquet(PROCESSED_DIR / "features.parquet")
     _, test = split_by_domain(df)
@@ -169,6 +161,7 @@ def main() -> None:
     results.insert(results.columns.get_loc("f1") + 1, "macro_f1", pd.Series(macro))
     results = results.sort_values("pr_auc", ascending=False)
     metrics = results.drop(columns="family").astype(float)
+    # Rank each metric in its better direction, then average per model.
     ranks = pd.concat([metrics[HIGHER_IS_BETTER].rank(ascending=False),
                        metrics[LOWER_IS_BETTER].rank(ascending=True)], axis=1)
     results.insert(1, "mean_rank", ranks.mean(axis=1))
@@ -212,8 +205,8 @@ def main() -> None:
         "## Models\n",
         "| Model | Family | Input | Trained by |",
         "|---|---|---|---|",
-        "| LightGBM | Supervised | 21 URL features incl. `tld` | `train_model.py` |",
-        "| Logistic Regression | Supervised | 21 URL features incl. `tld` | `train_model.py` |",
+        "| LightGBM | Supervised | 23 URL features incl. `tld` | `train_model.py` |",
+        "| Logistic Regression | Supervised | 23 URL features incl. `tld` | `train_model.py` |",
         "| Char n-gram + LogReg | Supervised | raw URL, 3-5 char n-grams | "
         "`train_char_ngram.py` |",
         "| K-Means | Clustering (label used only to score clusters) | 20 numeric URL "

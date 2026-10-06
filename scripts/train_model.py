@@ -1,15 +1,4 @@
-# Model training over data/processed/features.parquet (from extract_features.py).
-#
-# - Splits rows ~80/20 into train/test *by registrable domain*, so no domain
-#   appears on both sides — the sources overlap heavily (see eda_report.md),
-#   and a row-level split would leak near-duplicate URLs into the test set.
-# - Fits a Logistic Regression baseline and a LightGBM model. LightGBM
-#   hyperparameters are picked by GroupKFold CV on the train split only; the
-#   test split is touched once, for the final evaluation.
-# - Evaluates both models on the test split, overall and per source.
-#
-# Writes models/{logreg,lightgbm}.joblib, data/analysis/model_report.md and
-# data/analysis/plots/model_*.png.
+"""Train LogReg and LightGBM on features.parquet; write models/*.joblib, model_report.md, plots."""
 import time
 from pathlib import Path
 from typing import Any
@@ -55,23 +44,20 @@ RANDOM_STATE = 42
 TEST_SIZE = 0.2
 CV_FOLDS = 3
 
-# Not model inputs: identifier, target, provenance and the grouping key.
-# `source` is out because class balance differs wildly per source, so it is a
-# shortcut to the label that a URL seen in the wild doesn't come with.
-NON_FEATURE_COLUMNS = ["url", "label", "source", "domain"]
-# Source-formatting artifacts rather than phishing signals — see the comment
-# on these flags in extract_features.py. Trained once with them anyway (the
-# "ablation" model) to show how much a model could gain from them.
+# Not model inputs: id, target, grouping key, and two leaky/string columns.
+# `source` is a label shortcut (class balance differs per source) unavailable at inference.
+# `matched_brand` is a string kept for error analysis; the brand scores summarise it.
+NON_FEATURE_COLUMNS = ["url", "label", "source", "domain", "matched_brand"]
+# Source-formatting artifacts, not phishing signals. Only used in the ablation model.
 PROTOCOL_FEATURES = ["has_protocol", "uses_https"]
 CATEGORICAL_FEATURES = ["tld"]
 
-# TLDs seen fewer times than this in the train split are pooled into one
-# bucket, so the model can't memorize one-off TLDs.
+# TLDs rarer than this in train are pooled into OTHER_TLD to avoid memorising one-offs.
 MIN_TLD_COUNT = 100
 NO_TLD = "(none)"  # IP hostnames and anything else without a public suffix
 OTHER_TLD = "(other)"
 
-# Typed as Any-valued so `**`-unpacking them into LGBMClassifier type-checks.
+# Any-valued so `**` unpacking into LGBMClassifier type-checks.
 LGBM_BASE_PARAMS: dict[str, Any] = {
     "objective": "binary",
     "learning_rate": 0.1,
@@ -91,12 +77,10 @@ LGBM_GRID: list[dict[str, Any]] = [
 EARLY_STOPPING_ROUNDS = 50
 
 THRESHOLD = 0.5
-# Operating point for "recall at a fixed false-positive rate": a phishing
-# filter that flags 1 in 100 legitimate URLs is already noisy for users.
+# FPR for the recall-at-fixed-FPR metric: flagging 1 in 100 legitimate URLs is already noisy.
 TARGET_FPR = 0.01
 
-# Chart palette: categorical slots 1-2 (validated light-mode pair), a
-# single-hue blue ramp for the confusion matrix, and recessive chrome.
+# Chart palette: two series colours, a blue ramp for the confusion matrix, muted chrome.
 SERIES_COLORS = {"LightGBM": "#2a78d6", "Logistic Regression": "#eb6834"}
 SEQUENTIAL_BLUE = ["#f4f8fd", "#cde2fb", "#86b6ef", "#3987e5", "#256abf", "#104281"]
 INK_PRIMARY = "#0b0b0b"
@@ -132,6 +116,7 @@ plt.rcParams.update({
 
 
 def savefig(fig, name: str) -> None:
+    """Save `fig` under PLOTS_DIR and close it."""
     path = PLOTS_DIR / name
     fig.savefig(path, dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -139,10 +124,12 @@ def savefig(fig, name: str) -> None:
 
 
 def log(msg: str, start: float) -> None:
+    """Print `msg` prefixed with seconds elapsed since `start`."""
     print(f"[{time.perf_counter() - start:7.1f}s] {msg}")
 
 
 def split_by_domain(df: pd.DataFrame):
+    """80/20 split grouped by domain: sources overlap, so a row split leaks near-duplicates."""
     splitter = GroupShuffleSplit(n_splits=1, test_size=TEST_SIZE, random_state=RANDOM_STATE)
     train_idx, test_idx = next(splitter.split(df, groups=df["domain"]))
     train = df.iloc[train_idx].reset_index(drop=True)
@@ -153,26 +140,29 @@ def split_by_domain(df: pd.DataFrame):
 
 
 def fit_tld_categories(train_tld: pd.Series) -> list:
+    """TLDs frequent enough in train, plus OTHER_TLD."""
     counts = train_tld.replace("", NO_TLD).value_counts()
     kept = sorted(counts[counts >= MIN_TLD_COUNT].index)
     return kept + [OTHER_TLD]
 
 
 def encode_tld(tld: pd.Series, categories: list) -> pd.Series:
+    """Map TLDs to the fixed category set; unseen ones become OTHER_TLD."""
     tld = tld.replace("", NO_TLD)
     tld = tld.where(tld.isin(categories), OTHER_TLD)
     return tld.astype(pd.CategoricalDtype(categories))
 
 
 def build_matrix(df: pd.DataFrame, feature_cols: list, tld_categories: list) -> pd.DataFrame:
+    """Model input: feature columns plus the encoded `tld`."""
     X = df[feature_cols].copy()
     X["tld"] = encode_tld(df["tld"], tld_categories)
     return X
 
 
 def build_logreg(numeric_cols: list) -> Pipeline:
-    # Counts and lengths are heavy-tailed (URL length tops out above 25k), so
-    # log1p before scaling keeps a few extreme rows from dominating the fit.
+    """Preprocessing (log1p, scaling, one-hot TLD) plus Logistic Regression."""
+    # Counts and lengths are heavy-tailed; log1p stops extreme rows dominating the fit.
     numeric = Pipeline([
         ("log1p", FunctionTransformer(np.log1p, feature_names_out="one-to-one")),
         ("scale", StandardScaler()),
@@ -188,6 +178,7 @@ def build_logreg(numeric_cols: list) -> Pipeline:
 
 
 def tune_lightgbm(X: pd.DataFrame, y: pd.Series, groups: pd.Series, start: float):
+    """Pick the LGBM_GRID config with the best mean GroupKFold PR-AUC; return params, CV table."""
     folds = list(GroupKFold(n_splits=CV_FOLDS).split(X, y, groups))
     rows = []
     for params in LGBM_GRID:
@@ -212,38 +203,37 @@ def tune_lightgbm(X: pd.DataFrame, y: pd.Series, groups: pd.Series, start: float
         log(f"  {params} -> CV PR-AUC {rows[-1]['cv_pr_auc_mean']:.4f}", start)
     best = max(rows, key=lambda row: row["cv_pr_auc_mean"])
     best_params = {k: best[k] for k in LGBM_GRID[0]}
-    best_params["n_estimators"] = best["best_iteration_mean"]
+    best_params["n_estimators"] = best["best_iteration_mean"]  # fixed count for the final refit
     return best_params, pd.DataFrame(rows)
 
 
 def fit_lightgbm(X: pd.DataFrame, y: pd.Series, params: dict) -> lgb.LGBMClassifier:
+    """Fit LightGBM with the base parameters overridden by `params`."""
     model = lgb.LGBMClassifier(**{**LGBM_BASE_PARAMS, **params})
     model.fit(X, y)
     return model
 
 
 def positive_proba(model, X: pd.DataFrame | pd.Series) -> np.ndarray:
-    # np.asarray: predict_proba is typed as possibly returning a sparse
-    # matrix or list, which can't be column-sliced; ours is always an ndarray.
+    """Predicted probability of the phishing class."""
+    # np.asarray: predict_proba's type allows sparse/list, which can't be column-sliced.
     return np.asarray(model.predict_proba(X))[:, 1]
 
 
 def evaluate(y_true: pd.Series, proba: np.ndarray) -> dict:
+    """Threshold-based, probability-error and ranking metrics for the phishing class."""
     pred = (proba >= THRESHOLD).astype(int)
-    # Error metrics on the predicted probability vs the 0/1 label, so they
-    # reward calibrated confidence rather than just the right side of the
-    # threshold. MSE here is the Brier score; RMSE is its square root.
+    # Probability-error metrics reward calibration. MSE here is the Brier score.
     mse = mean_squared_error(y_true, proba)
     metrics = {
         "precision": precision_score(y_true, pred, zero_division=0),
         "recall": recall_score(y_true, pred, zero_division=0),
         "f1": f1_score(y_true, pred, zero_division=0),
         "accuracy": accuracy_score(y_true, pred),
-        # Share of legitimate URLs left unflagged: recall of the negative class.
+        # Recall of the legitimate class.
         "specificity": recall_score(y_true, pred, pos_label=0, zero_division=np.nan),
-        # Mean of recall and specificity, and a correlation over all four
-        # confusion-matrix cells: unlike accuracy, neither can be inflated by
-        # the majority class (semihguner is ~99% phishing).
+        # Filled below: needs both classes. Unlike accuracy, neither is inflated by the
+        # majority class (semihguner is ~99% phishing).
         "balanced_accuracy": np.nan,
         "mcc": np.nan,
         "mae": mean_absolute_error(y_true, proba),
@@ -254,7 +244,7 @@ def evaluate(y_true: pd.Series, proba: np.ndarray) -> dict:
         "pr_auc": np.nan,
         "recall_at_1pct_fpr": np.nan,
     }
-    if y_true.nunique() == 2:
+    if y_true.nunique() == 2:  # these metrics are undefined for a single class
         metrics["balanced_accuracy"] = balanced_accuracy_score(y_true, pred)
         metrics["mcc"] = matthews_corrcoef(y_true, pred)
         fpr, tpr, _ = roc_curve(y_true, proba)
@@ -265,9 +255,7 @@ def evaluate(y_true: pd.Series, proba: np.ndarray) -> dict:
 
 
 def per_class_table(y_true: pd.Series, proba: np.ndarray) -> pd.DataFrame:
-    """Precision, recall and F1 for each class at THRESHOLD, plus their macro
-    (unweighted) and support-weighted averages. `evaluate()` only reports the
-    phishing class."""
+    """Per-class precision, recall, F1 at THRESHOLD, with macro and weighted averages."""
     pred = (proba >= THRESHOLD).astype(int)
     report = classification_report(y_true, pred, labels=[0, 1],
                                    target_names=["legitimate", "phishing"],
@@ -278,8 +266,7 @@ def per_class_table(y_true: pd.Series, proba: np.ndarray) -> pd.DataFrame:
 
 
 def per_source_table(test: pd.DataFrame, proba: np.ndarray) -> pd.DataFrame:
-    # `test` has a RangeIndex (split_by_domain resets it), so its index labels
-    # are also row positions into `proba`.
+    """Metrics per `source`; test's RangeIndex doubles as row positions into `proba`."""
     rows = []
     for source, group in test.groupby("source"):
         y = group["label"]
@@ -293,11 +280,13 @@ def per_source_table(test: pd.DataFrame, proba: np.ndarray) -> pd.DataFrame:
 
 
 def thin(*arrays, max_points: int = 2000):
+    """Subsample arrays evenly to about `max_points` to keep curve plots light."""
     step = max(1, len(arrays[0]) // max_points)
     return [a[::step] for a in arrays]
 
 
 def plot_curves(y_test: pd.Series, probas: dict) -> None:
+    """ROC and precision-recall curves for each model."""
     fig, (ax_roc, ax_pr) = plt.subplots(1, 2, figsize=(11, 4.5))
     for name, proba in probas.items():
         color = SERIES_COLORS[name]
@@ -328,6 +317,7 @@ def plot_curves(y_test: pd.Series, probas: dict) -> None:
 
 
 def plot_confusion_matrix(cm: np.ndarray) -> None:
+    """Row-normalised confusion matrix heatmap with counts."""
     labels = ["legitimate", "phishing"]
     row_share = cm / cm.sum(axis=1, keepdims=True)
     cmap = LinearSegmentedColormap.from_list("seq_blue", SEQUENTIAL_BLUE)
@@ -351,6 +341,7 @@ def plot_confusion_matrix(cm: np.ndarray) -> None:
 
 
 def plot_feature_importance(importance: pd.Series) -> None:
+    """Horizontal bar chart of LightGBM gain share (%)."""
     importance = importance.sort_values()
     fig, ax = plt.subplots(figsize=(7, 0.32 * len(importance) + 1))
     ax.barh(importance.index, importance.to_numpy(), height=0.7, color=SERIES_COLORS["LightGBM"])
@@ -364,6 +355,7 @@ def plot_feature_importance(importance: pd.Series) -> None:
 
 
 def main() -> None:
+    """Split, train, evaluate, then save models, plots and the markdown report."""
     start = time.perf_counter()
     PLOTS_DIR.mkdir(parents=True, exist_ok=True)
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
@@ -476,14 +468,24 @@ def main() -> None:
         "record how each source formatted its URLs, so any gain from them would not carry "
         "over to real traffic. They are left out of the saved models.",
         f"- Top features by split gain: "
-        + ", ".join(f"`{f}` ({v:.1f}%)" for f, v in importance.head(5).items()) + ".\n",
+        + ", ".join(f"`{f}` ({v:.1f}%)" for f, v in importance.head(5).items()) + ".",
+        f"- Brand-similarity features (FR3, added over the original 21): `brand_similarity_score` "
+        f"ranks {list(importance.index).index('brand_similarity_score') + 1} of {len(importance)} "
+        f"by split gain ({importance['brand_similarity_score']:.2f}%) — just behind `tld` and "
+        f"`path_length`, ahead of every lexical count feature. `is_exact_brand_match` ranks "
+        f"{list(importance.index).index('is_exact_brand_match') + 1} "
+        f"({importance['is_exact_brand_match']:.2f}%): most of its signal is already implied by "
+        f"a high `brand_similarity_score`, so it adds little on top of the continuous score.\n",
         "## Setup\n",
         f"- Split: `GroupShuffleSplit` on `domain`, test size {TEST_SIZE}, "
         f"random_state {RANDOM_STATE}.",
         f"- Features ({len(feature_cols)}): " + ", ".join(f"`{c}`" for c in feature_cols) + ".",
         "- Not used as features: `url` (identifier), `label` (target), `domain` (grouping key), "
         "`source` (provenance; a shortcut to the label), `has_protocol` and `uses_https` "
-        "(source-formatting artifacts - see ablation).",
+        "(source-formatting artifacts - see ablation), `matched_brand` (string, which brand "
+        "won the fuzzy match - kept for the A2 report's misclassification analysis, not a "
+        "model input; `brand_similarity_score`/`is_exact_brand_match` are its model-facing "
+        "summary).",
         f"- `tld` is categorical. TLDs seen fewer than {MIN_TLD_COUNT} times in train are pooled "
         f"into `{OTHER_TLD}`, and a missing suffix is `{NO_TLD}` "
         f"({len(tld_categories)} categories in total).",
@@ -493,8 +495,7 @@ def main() -> None:
         f"(grouped by `domain`), with early stopping after {EARLY_STOPPING_ROUNDS} rounds. The "
         "final model was refit on all of train with the best config and its mean best iteration.\n",
         "## LightGBM tuning (CV on train split)\n",
-        # Rounded rather than floatfmt'd: the table mixes int and float
-        # columns, and floatfmt would print the ints as 31.0000.
+        # Rounded, not floatfmt: floatfmt would print the int columns as 31.0000.
         cv_table.round(4).to_markdown(index=False),
         "",
         f"Selected: {best_params}\n",
@@ -533,6 +534,16 @@ def main() -> None:
         "on URLs from a new source.",
         "- Hosting and dynamic-DNS domains (e.g. `blogspot.com`, `duckdns.org`) are one group "
         "each, so all of their subdomains fall on the same side of the split.",
+        "- `brand_similarity_score` (`rapidfuzz.fuzz.ratio`) is a normalized edit distance, "
+        "which is noisy on short domain labels: a 3-4 character label needs only a one- or "
+        "two-character difference from some brand in the list to score >=0.85 by chance (e.g. "
+        "`fida.com` scores 0.857 against `fda`), independent of any real typosquat intent. "
+        "Longer look-alike labels (`instagrame.net` vs `instagram`, `tercent.tk` vs `tencent`) "
+        "score high for the right reason. Because of this the dataset-wide mean score is "
+        "*higher* for legitimate rows than phishing rows (0.675 vs 0.600) — driven by "
+        "legitimate rows that are literally a brand's own domain (`is_exact_brand_match=True`, "
+        "16.6% of legitimate rows vs 7.2% of phishing rows) — so read the two features "
+        "together, not `brand_similarity_score` alone, when explaining a prediction.",
         f"- Threshold {THRESHOLD} was not tuned. Pick the operating point from the ROC curve "
         "based on how many false alarms are acceptable.",
         "",

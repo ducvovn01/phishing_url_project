@@ -1,28 +1,12 @@
 """
-Load the four raw datasets, standardize each to a common schema
-(url, label, source), concatenate, and deduplicate.
+Merge the four raw datasets into (url, label, source), drop malformed rows and
+duplicates. Writes combined_dataset.csv and duplicates_removed.csv to data/processed/.
 
-label: 1 = phishing, 0 = legitimate.
-
-Verified label directions by sampling raw URLs against each source's raw
-label column (see fetch_datasets.py output / project chat log):
-  - mitake:        label 0/1 already matches target (0=legit, 1=phishing).
-                    Confirmed by sampling: label=0 rows are ordinary sites
-                    (dow.com, berkeley.edu, ...), label=1 rows are phishing-
-                    style domains (duckdns.org subdomains, typosquats, ...).
-  - semihguner:     label 0=benign, 1=malignant/phishing per dataset card;
-                    already matches target, no transform needed.
-  - harisudhan411:  status is INVERTED relative to the other two sources.
-                    Confirmed by sampling: status=0 rows are phishing-style
-                    (IP hostnames, spoofed battle.net/coinbase paths),
-                    status=1 rows are legitimate (facebook.com, imdb.com,
-                    last.fm, ...). So label = 1 - status.
-  - phiusiil:       label is INVERTED vs. our target (their docs state
-                    1=legitimate, 0=phishing). Confirmed by sampling:
-                    label=0 rows are phishing-style (spoofed OWA/metamask
-                    login pages, tracking domains), label=1 rows are
-                    legitimate (levelup.com, ringling.org, ...). So
-                    label = 1 - original_label, matching the stated docs.
+label: 1 = phishing, 0 = legitimate. Label directions, checked by sampling raw URLs:
+  - mitake: already 0=legit, 1=phishing.
+  - semihguner: already 0=benign, 1=phishing (dataset card).
+  - harisudhan411: status is inverted (0=phishing), so label = 1 - status.
+  - phiusiil: label is inverted (1=legitimate), so label = 1 - label.
 """
 import re
 from pathlib import Path
@@ -37,6 +21,7 @@ _PROTOCOL_RE = re.compile(r"^[a-z][a-z0-9+.-]*://")
 
 
 def get_hostname(url: str) -> str:
+    """Return the lowercased hostname without scheme, path, query, userinfo or port."""
     u = str(url).strip()
     u = _PROTOCOL_RE.sub("", u.lower())
     u = u.split("/", 1)[0].split("?", 1)[0].split("@")[-1].split(":")[0]
@@ -44,16 +29,10 @@ def get_hostname(url: str) -> str:
 
 
 def canonicalize(url: str) -> str:
-    """Lowercase, strip protocol, strip trailing slash. Used ONLY for dedup
-    matching — the original `url` column is left untouched since casing,
-    protocol, and trailing slash may themselves be phishing signals for
-    feature engineering later.
+    """Lowercase, strip protocol and trailing slash, for dedup matching only.
 
-    Plain regex/string ops rather than urllib.parse.urlsplit: some raw URLs
-    contain stray characters (e.g. an unescaped "[" in a query string) that
-    urlsplit rejects as malformed IPv6 syntax even though they're not URLs
-    we need to route anywhere — we only need consistent lowercased text for
-    exact-match dedup, not a real parsed URL object."""
+    String ops instead of urlsplit, which raises on stray characters such as
+    an unescaped "[" in a query string."""
     if not isinstance(url, str):
         return ""
     u = url.strip().lower()
@@ -63,6 +42,7 @@ def canonicalize(url: str) -> str:
 
 
 def load_mitake() -> pd.DataFrame:
+    """Load mitake.csv in the common schema."""
     df = pd.read_csv(RAW_DIR / "mitake.csv")
     return pd.DataFrame(
         {
@@ -74,6 +54,7 @@ def load_mitake() -> pd.DataFrame:
 
 
 def load_semihguner() -> pd.DataFrame:
+    """Load semihguner.parquet in the common schema."""
     df = pd.read_parquet(RAW_DIR / "semihguner.parquet")
     return pd.DataFrame(
         {
@@ -85,8 +66,9 @@ def load_semihguner() -> pd.DataFrame:
 
 
 def load_harisudhan411() -> pd.DataFrame:
+    """Load harisudhan411.csv in the common schema, flipping the label."""
     df = pd.read_csv(RAW_DIR / "harisudhan411.csv")
-    # status is inverted vs. our target label — see module docstring.
+    # status is inverted (see module docstring).
     label = 1 - df["status"].astype(int)
     return pd.DataFrame(
         {
@@ -98,8 +80,9 @@ def load_harisudhan411() -> pd.DataFrame:
 
 
 def load_phiusiil() -> pd.DataFrame:
+    """Load phiusiil.csv in the common schema, flipping the label."""
     df = pd.read_csv(RAW_DIR / "phiusiil.csv")
-    # label is inverted vs. our target — see module docstring.
+    # label is inverted (see module docstring).
     label = 1 - df["label"].astype(int)
     return pd.DataFrame(
         {
@@ -111,6 +94,7 @@ def load_phiusiil() -> pd.DataFrame:
 
 
 def main() -> None:
+    """Load, clean and deduplicate the sources, then write the CSVs and print counts."""
     PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
     frames = [
@@ -121,11 +105,8 @@ def main() -> None:
     ]
     combined = pd.concat(frames, ignore_index=True)
 
-    # Drop null/empty urls and urls whose hostname has no dot (malformed
-    # entries, e.g. binary garbage baked into the upstream mitake HF dataset
-    # itself — confirmed byte-identical between the live HF load and our
-    # saved data/raw/mitake.csv, so this is source data quality, not an
-    # encoding bug in fetch/normalize). Small, fixed count — log and drop.
+    # Drop null/empty URLs and no-dot hostnames. The malformed rows (e.g. binary
+    # garbage) come from the upstream mitake data, not from our fetch/normalize.
     is_empty = combined["url"].isna() | (combined["url"].astype(str).str.strip() == "")
     hostnames = combined["url"].map(get_hostname)
     is_no_dot_host = ~hostnames.str.contains(r"\.", regex=True)
@@ -146,7 +127,7 @@ def main() -> None:
     kept = combined[~is_dup].copy()
     dropped = combined[is_dup].copy()
 
-    # For each dropped row, find which surviving row it duplicated.
+    # Map each dropped row to the kept row it duplicated.
     first_occurrence = (
         kept[["url_canonical", "url", "source"]]
         .rename(columns={"url": "kept_url", "source": "kept_source"})
@@ -161,8 +142,7 @@ def main() -> None:
     kept.drop(columns="url_canonical").to_csv(
         PROCESSED_DIR / "combined_dataset.csv", index=False
     )
-    # Keep url_canonical in a companion file too? No — spec says combined_dataset.csv
-    # is the final merged/deduped dataset; url_canonical was dedup-only scaffolding.
+    # url_canonical is dedup-only scaffolding, so it is not saved.
 
     print(f"Total rows in:  {total_in}")
     print(f"Total rows out: {len(kept)}")

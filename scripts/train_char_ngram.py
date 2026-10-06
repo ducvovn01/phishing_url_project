@@ -1,25 +1,10 @@
-# Character n-gram baseline: TF-IDF over 3-5 character substrings of the raw
-# URL, fed to a Logistic Regression.
-#
-# Unlike train_model.py it gets no hand-made features: every run of 3-5
-# characters in the URL (e.g. "ver", "erif", ".top/") is a feature, and the
-# model learns one weight per n-gram. It uses the same domain-grouped
-# train/test split and the same metrics as train_model.py, and scores the
-# saved LightGBM and Logistic Regression models on that test split for a
-# side-by-side table.
-#
-# URLs go through extract_features.preprocess_url_masked() first: scheme
-# stripped and lowercased, to keep source formatting out of the input (same
-# reason has_protocol/uses_https are dropped in train_model.py), and the brand
-# label of an official brand domain replaced by a shared mask ("facebook.com"
-# -> "§.com"). Without the mask, a brand whose own domain is missing from train
-# is known only from pages impersonating it, and its real site gets flagged:
-# the domain-grouped split put every facebook.com row in test. The same
-# pipeline without the mask is fitted once more as an ablation. The
-# preprocessors live in extract_features.py so the pickled pipeline refers to
-# an importable module, not __main__.
-#
-# Writes models/char_ngram.joblib and data/analysis/char_ngram_report.md.
+"""Train a char n-gram TF-IDF LogReg on URLs with official brand domains masked.
+
+Writes models/char_ngram.joblib and data/analysis/char_ngram_report.md. The brand label of an
+official domain becomes "§" ("facebook.com" -> "§.com"): the domain-grouped split keeps a
+brand's own site out of train, so without the mask it would be flagged. An unmasked ablation
+is fitted for comparison.
+"""
 import time
 
 import joblib
@@ -31,6 +16,7 @@ from sklearn.metrics import average_precision_score, confusion_matrix
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.pipeline import Pipeline
 
+# Preprocessors live in extract_features so the pickled pipeline imports cleanly, not via __main__.
 from extract_features import OFFICIAL_BRAND_DOMAINS, preprocess_url, preprocess_url_masked
 from train_model import (
     ANALYSIS_DIR,
@@ -49,9 +35,8 @@ from train_model import (
 )
 
 NGRAM_RANGE = (3, 5)
-# Hashing instead of a learned vocabulary: the train split has tens of
-# millions of distinct n-grams, and a vocabulary dict that size doesn't fit in
-# memory. Rare collisions (two n-grams sharing one column) are the trade-off.
+# Hashing, not a vocabulary: tens of millions of distinct n-grams won't fit in memory.
+# Trade-off: rare collisions (two n-grams share a column).
 N_FEATURES = 2 ** 20
 VAL_SIZE = 0.1  # share of train domains held out to pick C
 C_GRID = [1.0, 3.0, 10.0, 30.0]
@@ -65,6 +50,7 @@ ALL_BRANDS = "(all official domains)"
 
 
 def ngram_hasher(analyzer="char", preprocessor=preprocess_url_masked) -> HashingVectorizer:
+    """Stateless char n-gram counter; the preprocessor strips the scheme, lowercases and masks brands."""
     return HashingVectorizer(
         analyzer=analyzer,
         ngram_range=NGRAM_RANGE,
@@ -86,10 +72,10 @@ def build_char_ngram(C: float, preprocessor=preprocess_url_masked) -> Pipeline:
 
 
 def tune_C(urls: pd.Series, y: np.ndarray, groups: pd.Series, start: float):
+    """Choose C by validation PR-AUC on a domain-grouped holdout of train."""
     splitter = GroupShuffleSplit(n_splits=1, test_size=VAL_SIZE, random_state=RANDOM_STATE)
     fit_idx, val_idx = next(splitter.split(urls, groups=groups))
-    # Hashing is stateless, so the n-gram counts are computed once and only
-    # the TF-IDF weights and the classifier are fitted per C.
+    # Hashing is stateless: count once, refit only TF-IDF and the classifier per C.
     counts = ngram_hasher().transform(urls)
     tfidf = TfidfTransformer(sublinear_tf=True).fit(counts[fit_idx])
     X_fit, X_val = tfidf.transform(counts[fit_idx]), tfidf.transform(counts[val_idx])
@@ -104,9 +90,7 @@ def tune_C(urls: pd.Series, y: np.ndarray, groups: pd.Series, start: float):
 
 
 def top_ngrams(pipeline: Pipeline, urls: pd.Series, n: int = 15) -> pd.DataFrame:
-    """Weights of the most common n-grams in `urls`. The model only stores
-    hashed columns, so the n-gram text is recovered by hashing a vocabulary
-    of real n-grams and reading their columns' weights."""
+    """Weights of common n-grams in `urls`, found by hashing a real vocabulary to its columns."""
     vocab = CountVectorizer(
         analyzer="char", ngram_range=NGRAM_RANGE, preprocessor=preprocess_url_masked, min_df=200,
     ).fit(urls).get_feature_names_out()
@@ -119,6 +103,21 @@ def top_ngrams(pipeline: Pipeline, urls: pd.Series, n: int = 15) -> pd.DataFrame
         table.tail(n)[::-1].assign(direction="phishing"),
         table.head(n).assign(direction="legitimate"),
     ])[["direction", "ngram", "weight"]]
+
+
+def brand_substring_weights(pipeline: Pipeline) -> pd.DataFrame:
+    """Summed n-gram weight per brand word (clean and typo); positive leans phishing."""
+    analyzer = ngram_hasher().build_analyzer()
+    token_hasher = ngram_hasher(analyzer=lambda s: [s])
+    coef = pipeline.named_steps["model"].coef_[0]
+    words = ["paypal", "paypa1", "amazon", "amaz0n", "google", "g00gle",
+             "apple", "appleid", "facebook", "faceb00k", "netflix",
+             "chase", "wellsfargo", "instagram", "instagrame", "microsoft"]
+    rows = []
+    for w in words:
+        cols = token_hasher.transform(analyzer(w)).indices
+        rows.append({"word": w, "sum_weight": float(coef[cols].sum())})
+    return pd.DataFrame(rows)
 
 
 def brand_domain_table(test: pd.DataFrame, probas: dict, top: int = 10) -> pd.DataFrame:
@@ -139,10 +138,10 @@ def brand_domain_table(test: pd.DataFrame, probas: dict, top: int = 10) -> pd.Da
 
 
 def main() -> None:
+    """Tune, fit and evaluate the n-gram model against the saved models; write model and report."""
     start = time.perf_counter()
 
-    # Whole table, so split_by_domain() reproduces train_model.py's split
-    # exactly and the saved models can be scored on the same rows.
+    # Same whole-table split as train_model.py, so saved models score the same test rows.
     df = pd.read_parquet(PROCESSED_DIR / "features.parquet")
     train, test = split_by_domain(df)
     del df
@@ -171,7 +170,9 @@ def main() -> None:
     by_class = per_class_table(test["label"], ngram_proba)
     brands = brand_domain_table(test, probas)
     cm = confusion_matrix(y_test, (ngram_proba >= THRESHOLD).astype(int))
-    ngrams = top_ngrams(pipeline, train["url"].sample(300_000, random_state=RANDOM_STATE))
+    # Sample of train keeps the vocabulary fit cheap.
+    ngrams = top_ngrams(pipeline, train["url"].sample(min(300_000, len(train)), random_state=RANDOM_STATE))
+    brand_weights = brand_substring_weights(pipeline)
     print()
     print(results.to_string(float_format="{:.4f}".format))
     print()
@@ -280,6 +281,26 @@ def main() -> None:
         "column shared by two n-grams shows their combined weight.\n",
         ngrams.to_markdown(index=False, floatfmt=".3f"),
         "",
+        "## Brand-substring signal (vs. the FR3 brand-similarity features)\n",
+        "`scripts/extract_features.py` now computes `brand_similarity_score` and "
+        "`is_exact_brand_match` against a curated brand list (see `model_report.md`) for the "
+        "LightGBM/Logistic Regression models. The char n-gram model gets no such list — it "
+        "only ever sees 3-5 character substrings of the raw URL — so the question is whether "
+        "it already learns brand-name substrings as a signal on its own. Summing the model's "
+        "learned weight over every 3-5 character n-gram in a brand name (both the clean "
+        "spelling and a leetspeak typo) answers this directly:\n",
+        brand_weights.to_markdown(index=False, floatfmt=".3f"),
+        "",
+        "Most brand substrings push toward phishing (positive sum), both in clean and "
+        "leetspeak form (`paypal`/`paypa1`, `amazon`/`amaz0n`) — so yes, the n-gram model "
+        "already captures a version of brand-impersonation signal implicitly, purely from "
+        "substring frequency, with no brand list at all. `google`/`g00gle` are the exception "
+        "(negative sum): google.com's own legitimate traffic is common enough in this dataset "
+        "that the substring reads as *more* legitimate than phishing on balance, which is "
+        "exactly the failure mode the engineered features avoid — `is_exact_brand_match` "
+        "separates \"is the real google.com\" from \"looks like google\" by construction, "
+        "while the n-gram model can only learn one weight per substring regardless of which "
+        "case it's in.\n",
         "## Caveats\n",
         "- Same as `model_report.md`: the test split comes from the same four overlapping "
         "sources as train, so expect lower scores on URLs from a new source.",
