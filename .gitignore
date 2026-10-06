@@ -9,3 +9,7 @@ venv/
 
 # OS
 .DS_Store
+
+# Unmasked-model backups (kept locally for the report evidence)
+models_unmasked_backup/
+data/analysis_unmasked_backup/

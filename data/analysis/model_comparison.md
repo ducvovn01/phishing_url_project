@@ -4,8 +4,8 @@ Source: `scripts/compare_models.py`. Every saved model scored on the same domain
 
 ## Summary of findings
 
-- Best by PR-AUC: Char n-gram + LogReg (0.9742), also best mean rank across all metrics: Char n-gram + LogReg.
-- Best of each family by PR-AUC: Anomaly detection: Autoencoder (0.6936); Clustering: K-Means (0.8246); Supervised: Char n-gram + LogReg (0.9742).
+- Best by PR-AUC: Char n-gram + LogReg (0.9796), also best mean rank across all metrics: Char n-gram + LogReg.
+- Best of each family by PR-AUC: Anomaly detection: Autoencoder (0.6936); Clustering: K-Means (0.8246); Supervised: Char n-gram + LogReg (0.9796).
 - Char n-gram + LogReg is best on all 15 metrics.
 
 ## Models
@@ -25,7 +25,7 @@ Sorted by PR-AUC. Threshold-based metrics use each model's probability at 0.5; `
 
 |                      | family            |   mean_rank |   precision |   recall |     f1 |   macro_f1 |   accuracy |   specificity |   balanced_accuracy |    mcc |    mae |   mse_brier |   rmse |   log_loss |   roc_auc |   pr_auc |   recall_at_1pct_fpr |
 |:---------------------|:------------------|------------:|------------:|---------:|-------:|-----------:|-----------:|--------------:|--------------------:|-------:|-------:|------------:|-------:|-----------:|----------:|---------:|---------------------:|
-| Char n-gram + LogReg | Supervised        |      1.0000 |      0.9149 |   0.9117 | 0.9133 |     0.9059 |     0.9065 |        0.9004 |              0.9060 | 0.8118 | 0.1213 |      0.0702 | 0.2650 |     0.2399 |    0.9674 |   0.9742 |               0.6681 |
+| Char n-gram + LogReg | Supervised        |      1.0000 |      0.9338 |   0.9147 | 0.9242 |     0.9185 |     0.9189 |        0.9238 |              0.9192 | 0.8372 | 0.1189 |      0.0604 | 0.2459 |     0.2029 |    0.9746 |   0.9796 |               0.7100 |
 | LightGBM             | Supervised        |      2.0000 |      0.8862 |   0.7897 | 0.8352 |     0.8315 |     0.8316 |        0.8808 |              0.8353 | 0.6688 | 0.2160 |      0.1224 | 0.3498 |     0.3888 |    0.9077 |   0.9330 |               0.5525 |
 | Logistic Regression  | Supervised        |      3.2000 |      0.8238 |   0.6739 | 0.7413 |     0.7458 |     0.7459 |        0.8306 |              0.7522 | 0.5062 | 0.3195 |      0.1756 | 0.4190 |     0.5204 |    0.8145 |   0.8675 |               0.3756 |
 | K-Means              | Clustering        |      4.1333 |      0.7439 |   0.6908 | 0.7164 |     0.7040 |     0.7045 |        0.7205 |              0.7057 | 0.4100 | 0.3621 |      0.1864 | 0.4318 |     0.5395 |    0.7854 |   0.8246 |               0.2466 |
@@ -38,7 +38,7 @@ Sources have very different phishing shares, so compare models within a column, 
 
 |                      |   harisudhan411 |   mitake |   phiusiil |   semihguner |
 |:---------------------|----------------:|---------:|-----------:|-------------:|
-| Char n-gram + LogReg |          0.9057 |   0.8747 |     0.7748 |       0.9779 |
+| Char n-gram + LogReg |          0.9117 |   0.8979 |     0.7868 |       0.9792 |
 | LightGBM             |          0.8387 |   0.7509 |     0.7554 |       0.9218 |
 | Logistic Regression  |          0.7827 |   0.6563 |     0.5213 |       0.8459 |
 | K-Means              |          0.8337 |   0.5291 |     0.5502 |       0.8720 |
