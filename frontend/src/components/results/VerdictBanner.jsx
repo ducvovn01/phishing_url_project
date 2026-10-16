@@ -27,7 +27,7 @@ export default function VerdictBanner({ result, headingRef }) {
               fontWeight: 700,
               lineHeight: 1.2,
               color: 'text.primary',
-              '&:focus': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 4 },
+              '&:focus': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: '4px' },
             }}
           >
             {verdictText(result.label)}

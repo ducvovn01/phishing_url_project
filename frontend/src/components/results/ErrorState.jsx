@@ -15,17 +15,18 @@ export default function ErrorState({ error, onRetry, titleRef }) {
     <Alert
       severity="error"
       role="alert"
-      action={
-        <Button color="inherit" size="small" onClick={onRetry}>
-          Try again
-        </Button>
-      }
+      // MUI's message container has overflow: auto, which clips the title's focus outline at the sides.
+      sx={{ '& .MuiAlert-message': { overflow: 'visible' } }}
     >
       <AlertTitle
         component="h2"
         ref={titleRef}
         tabIndex={-1}
-        sx={{ '&:focus': { outline: '2px solid', outlineColor: 'currentColor', outlineOffset: 2 } }}
+        sx={{
+          display: 'inline-block',
+          px: 0.5,
+          '&:focus': { outline: '2px solid', outlineColor: 'currentColor', outlineOffset: '4px' },
+        }}
       >
         {TITLES[error.code] ?? 'Something went wrong'}
       </AlertTitle>
@@ -36,6 +37,9 @@ export default function ErrorState({ error, onRetry, titleRef }) {
           Reference: {error.request_id}
         </Typography>
       )}
+      <Button variant="outlined" size="small" color="inherit" onClick={onRetry} sx={{ mt: 2 }}>
+        Try again
+      </Button>
     </Alert>
   )
 }
