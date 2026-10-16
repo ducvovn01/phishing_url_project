@@ -5,7 +5,8 @@ import { ApiError, normaliseError } from './errors.js'
 const DEV_BASE_URL = 'http://localhost:8000'
 const MAX_SIGNALS = 10
 
-const api = axios.create({
+// Exported only so tests can stub its adapter without importing axios themselves.
+export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || DEV_BASE_URL,
   timeout: 30000,
 })

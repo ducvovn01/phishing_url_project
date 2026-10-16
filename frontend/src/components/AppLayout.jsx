@@ -25,19 +25,22 @@ export default function AppLayout({ children }) {
         Skip to main content
       </Link>
       <AppBar position="static" component="header">
-        <Toolbar sx={{ gap: 2, flexWrap: 'wrap' }}>
-          <Typography component="p" variant="h3" sx={{ flexGrow: 1 }}>
-            Phishing URL Checker
-          </Typography>
-          <Box component="nav" aria-label="Main">
-            <Button color="inherit" component={NavLink} to="/" end sx={navLinkSx}>
-              Check a URL
-            </Button>
-            <Button color="inherit" component={NavLink} to="/session" sx={navLinkSx}>
-              This session
-            </Button>
-          </Box>
-        </Toolbar>
+        {/* Same Container as main and footer so the title shares their left edge. */}
+        <Container maxWidth="md">
+          <Toolbar disableGutters sx={{ gap: 2, flexWrap: 'wrap' }}>
+            <Typography component="p" variant="h3" sx={{ flexGrow: 1 }}>
+              Phishing URL Checker
+            </Typography>
+            <Box component="nav" aria-label="Main">
+              <Button color="inherit" component={NavLink} to="/" end sx={navLinkSx}>
+                Check a URL
+              </Button>
+              <Button color="inherit" component={NavLink} to="/session" sx={navLinkSx}>
+                This session
+              </Button>
+            </Box>
+          </Toolbar>
+        </Container>
       </AppBar>
       <Container
         component="main"

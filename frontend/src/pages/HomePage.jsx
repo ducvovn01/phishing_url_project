@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Box, Stack, Typography } from '@mui/material'
 import UrlForm from '../components/UrlForm.jsx'
+import { TRUST_SCORE_NOTE } from '../content/trustScoreNote.js'
 import usePageTitle from '../hooks/usePageTitle.js'
 
 export default function HomePage() {
@@ -34,7 +35,7 @@ export default function HomePage() {
           <li>You get a verdict, a trust score and the parts that looked suspicious.</li>
         </Box>
         <Typography variant="body2" color="text.secondary">
-          Trust score: 100 means no sign of phishing was found, 0 means very likely phishing.
+          {TRUST_SCORE_NOTE}
         </Typography>
       </Box>
     </Stack>

@@ -97,7 +97,8 @@ export default function UrlForm({ onSubmit, loading = false, serverError = null,
             </Button>
           )}
         </Stack>
-        <Typography role="status" variant="body2">
+        {/* <output> has the implicit status role, so screen readers announce the message. */}
+        <Typography component="output" variant="body2" sx={{ display: 'block' }}>
           {clipboardMessage}
         </Typography>
       </Stack>

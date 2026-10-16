@@ -67,6 +67,47 @@ describe('mock analyseUrl', () => {
   })
 })
 
+describe('mock rule signals', () => {
+  const ruleOf = (r, id) => r.signals.find((s) => s.id === id)
+
+  test.each([
+    ['http://192.168.0.1/login', 'rule-ip-host', { start: 0, end: 11, text: '192.168.0.1' }],
+    ['xn--pypal-4ve.com/secure', 'rule-punycode', { start: 0, end: 13, text: 'xn--pypal-4ve' }],
+    ['https://www.xn--80ak6aa92e.com/', 'rule-punycode', { start: 4, end: 18, text: 'xn--80ak6aa92e' }],
+    ['example.com/' + 'a'.repeat(64), 'rule-long-url', { start: null, end: null, text: null }],
+  ])('%s gets %s', async (url, id, position) => {
+    const r = await analyseUrl(url)
+    expect(isAnalysisResponse(r)).toBe(true)
+    expect(ruleOf(r, id)).toMatchObject({ kind: 'rule', weight: null, direction: 'phishing', ...position })
+    if (position.start !== null) {
+      expect(Array.from(r.analysed_url).slice(position.start, position.end).join('')).toBe(position.text)
+    }
+  })
+
+  test('no rules for a normal host or a URL of exactly 75 code points', async () => {
+    const r = await analyseUrl('example.com/' + 'a'.repeat(63))
+    expect(Array.from(r.analysed_url)).toHaveLength(75)
+    expect(r.signals.filter((s) => s.kind === 'rule')).toEqual([])
+  })
+
+  test('rules come after ngrams and the total stays at most 10', async () => {
+    const r = await analyseUrl('xn--abc.top/www./login/verify/secure/.xyz/.org/.com/' + 'a'.repeat(40))
+    expect(isAnalysisResponse(r)).toBe(true)
+    expect(r.signals).toHaveLength(10)
+    const kinds = r.signals.map((s) => s.kind)
+    expect(kinds.lastIndexOf('ngram')).toBeLessThan(kinds.indexOf('rule'))
+    expect(kinds.filter((k) => k === 'rule')).toHaveLength(2)
+  })
+})
+
+test('mock-invalid fails with validation_error, details and a request_id', async () => {
+  await expect(analyseUrl('https://mock-invalid.test')).rejects.toMatchObject({
+    code: 'validation_error',
+    details: [{ field: 'url', message: 'The mock says this URL is invalid.' }],
+    request_id: 'mock',
+  })
+})
+
 test('mock getHealth passes the client shape check', async () => {
   expect(isHealthResponse(await getHealth())).toBe(true)
 })
