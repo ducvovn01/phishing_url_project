@@ -1,15 +1,7 @@
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
 import { expect, test } from 'vitest'
-import App from './App.jsx'
-
-const renderAt = (path) =>
-  render(
-    <MemoryRouter initialEntries={[path]}>
-      <App />
-    </MemoryRouter>,
-  )
+import { renderApp as renderAt } from './test/renderApp.jsx'
 
 test('home route renders with the skip link first', async () => {
   renderAt('/')

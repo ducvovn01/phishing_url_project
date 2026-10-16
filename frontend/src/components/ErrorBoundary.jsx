@@ -1,8 +1,9 @@
 import { Component } from 'react'
 import { Button, Stack, Typography } from '@mui/material'
+import { Link as RouterLink } from 'react-router-dom'
 import usePageTitle from '../hooks/usePageTitle.js'
 
-function ErrorFallback() {
+function ErrorFallback({ onReset }) {
   usePageTitle('Something went wrong')
   return (
     <Stack spacing={2} sx={{ alignItems: 'flex-start' }}>
@@ -12,8 +13,8 @@ function ErrorFallback() {
         <Button variant="contained" onClick={() => window.location.reload()}>
           Reload
         </Button>
-        {/* Full page load so the boundary's error state is cleared. */}
-        <Button variant="outlined" href="/">
+        {/* Router link that also clears the boundary's error state. */}
+        <Button variant="outlined" component={RouterLink} to="/" onClick={onReset}>
           Back to home
         </Button>
       </Stack>
@@ -33,7 +34,9 @@ export default class ErrorBoundary extends Component {
     console.error(error, info.componentStack)
   }
 
+  reset = () => this.setState({ hasError: false })
+
   render() {
-    return this.state.hasError ? <ErrorFallback /> : this.props.children
+    return this.state.hasError ? <ErrorFallback onReset={this.reset} /> : this.props.children
   }
 }

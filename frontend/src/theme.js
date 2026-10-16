@@ -33,8 +33,9 @@ const base = createTheme({
 
 const theme = createTheme(base, {
   palette: {
-    phishing: base.palette.augmentColor({ color: { main: '#b71c1c' }, name: 'phishing' }),
-    legitimate: base.palette.augmentColor({ color: { main: '#1b5e20' }, name: 'legitimate' }),
+    // tint: light background for verdicts, highlights and chips, always used with dark text.
+    phishing: { ...base.palette.augmentColor({ color: { main: '#b71c1c' }, name: 'phishing' }), tint: '#fdecea' },
+    legitimate: { ...base.palette.augmentColor({ color: { main: '#1b5e20' }, name: 'legitimate' }), tint: '#e8f5e9' },
   },
 })
 

@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import ErrorBoundary from './ErrorBoundary.jsx'
 
 afterEach(() => vi.restoreAllMocks())
@@ -11,9 +12,11 @@ function Boom() {
 test('shows the fallback and hides the thrown error', () => {
   const log = vi.spyOn(console, 'error').mockImplementation(() => {})
   render(
-    <ErrorBoundary>
-      <Boom />
-    </ErrorBoundary>,
+    <MemoryRouter>
+      <ErrorBoundary>
+        <Boom />
+      </ErrorBoundary>
+    </MemoryRouter>,
   )
   expect(screen.getByRole('heading', { name: 'Something went wrong' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Reload' })).toBeInTheDocument()
