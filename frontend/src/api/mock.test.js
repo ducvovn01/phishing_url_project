@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import { isAnalysisResponse, isHealthResponse } from './client.js'
+import { ApiError } from './errors.js'
 import { analyseUrl, getHealth } from './mock.js'
+import { validateUrl } from '../validation/urlRules.js'
 
 const URLS = [
   'paypa1-secure-login.top/verify', // contract example 3.2
@@ -105,6 +107,43 @@ test('mock-invalid fails with validation_error, details and a request_id', async
     code: 'validation_error',
     details: [{ field: 'url', message: 'The mock says this URL is invalid.' }],
     request_id: 'mock',
+  })
+})
+
+describe('mock special inputs and their dotted aliases', () => {
+  const SPECIALS = [
+    ['mock-busy', 'busy.mock'],
+    ['mock-error', 'error.mock'],
+    ['mock-offline', 'offline.mock'],
+    ['mock-invalid', 'invalid.mock'],
+  ]
+  // Copy the outcome's contract fields; ApiError also carries a stack that differs per instance.
+  const outcome = (e) => ({ code: e.code, message: e.message, details: e.details, request_id: e.request_id, retryAfterSeconds: e.retryAfterSeconds })
+
+  test.each(SPECIALS)('alias of %s passes the form validation', (_, alias) => {
+    expect(validateUrl(alias).valid).toBe(true)
+    expect(validateUrl(`https://${alias}/page`).valid).toBe(true)
+  })
+
+  test.each(SPECIALS)('the original %s still works inside a URL the form accepts', async (name) => {
+    const url = `https://${name}.test`
+    expect(validateUrl(url).valid).toBe(true)
+    await expect(analyseUrl(url)).rejects.toBeInstanceOf(ApiError)
+  })
+
+  test.each(SPECIALS)('%s and %s give exactly the same outcome', async (name, alias) => {
+    const [original, dotted, shouted] = await Promise.all(
+      [name, alias, `  HTTPS://${alias.toUpperCase()}  `].map((u) => analyseUrl(u).catch((e) => e)),
+    )
+    expect(original).toBeInstanceOf(ApiError)
+    expect(outcome(dotted)).toEqual(outcome(original))
+    expect(outcome(shouted)).toEqual(outcome(original))
+  })
+
+  test('a normal URL still gets a normal mock result', async () => {
+    const r = await analyseUrl('example.com/mockery')
+    expect(isAnalysisResponse(r)).toBe(true)
+    expect(r.analysed_url).toBe('example.com/mockery')
   })
 })
 

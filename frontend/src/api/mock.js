@@ -132,18 +132,29 @@ function buildResponse(url) {
   }
 }
 
+// Special inputs, matched as substrings of the trimmed, lower-cased URL, checked in this order.
+// Each has a dotted alias (busy.mock and so on) because the form's validateUrl requires a "."
+// in the host, so a bare "mock-busy" never gets past the form.
+const SPECIAL_INPUTS = [
+  { triggers: ['mock-busy', 'busy.mock'], error: () => new ApiError('service_busy', { request_id: 'mock', retryAfterSeconds: 5 }) },
+  { triggers: ['mock-error', 'error.mock'], error: () => new ApiError('internal_error', { request_id: 'mock' }) },
+  { triggers: ['mock-offline', 'offline.mock'], error: () => new ApiError('backend_unavailable') },
+  {
+    triggers: ['mock-invalid', 'invalid.mock'],
+    error: () =>
+      new ApiError('validation_error', {
+        details: [{ field: 'url', message: 'The mock says this URL is invalid.' }],
+        request_id: 'mock',
+      }),
+  },
+]
+
 /** @returns {Promise<import('./types.js').AnalysisResponse>} */
 export async function analyseUrl(url) {
   await wait()
-  if (url.includes('mock-busy')) throw new ApiError('service_busy', { request_id: 'mock', retryAfterSeconds: 5 })
-  if (url.includes('mock-error')) throw new ApiError('internal_error', { request_id: 'mock' })
-  if (url.includes('mock-offline')) throw new ApiError('backend_unavailable')
-  if (url.includes('mock-invalid')) {
-    throw new ApiError('validation_error', {
-      details: [{ field: 'url', message: 'The mock says this URL is invalid.' }],
-      request_id: 'mock',
-    })
-  }
+  const key = url.trim().toLowerCase()
+  const special = SPECIAL_INPUTS.find((s) => s.triggers.some((t) => key.includes(t)))
+  if (special) throw special.error()
   return buildResponse(url)
 }
 
