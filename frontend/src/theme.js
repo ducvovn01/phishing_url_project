@@ -21,6 +21,14 @@ const base = createTheme({
   },
   spacing: 8,
   shape: { borderRadius: 8 },
+  components: {
+    // MUI's default keyboard focus is only a faint ripple; give every button a clear outline.
+    MuiButtonBase: {
+      styleOverrides: {
+        root: { '&.Mui-focusVisible': { outline: '2px solid #212121', outlineOffset: 2 } },
+      },
+    },
+  },
 })
 
 const theme = createTheme(base, {

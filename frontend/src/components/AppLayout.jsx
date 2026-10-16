@@ -12,7 +12,11 @@ const skipLinkSx = {
   '&:focus': { top: 8 },
 }
 
-const navLinkSx = { '&.active': { textDecoration: 'underline', textUnderlineOffset: 4 } }
+const navLinkSx = {
+  '&.active': { textDecoration: 'underline', textUnderlineOffset: 4 },
+  // The theme's dark outline is hard to see on the blue header.
+  '&.Mui-focusVisible': { outlineColor: 'currentColor' },
+}
 
 export default function AppLayout({ children }) {
   return (

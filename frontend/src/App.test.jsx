@@ -13,7 +13,7 @@ const renderAt = (path) =>
 
 test('home route renders with the skip link first', async () => {
   renderAt('/')
-  expect(screen.getByRole('heading', { level: 1, name: 'Check a URL' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { level: 1, name: 'Check a link before you click it' })).toBeInTheDocument()
   await userEvent.tab()
   expect(screen.getByRole('link', { name: 'Skip to main content' })).toHaveFocus()
 })
@@ -24,5 +24,5 @@ test('unknown route shows not-found page and its back button goes home', async (
   expect(document.title).toBe('Page not found | Phishing URL Checker')
 
   await userEvent.click(screen.getByRole('link', { name: 'Back to the URL checker' }))
-  expect(screen.getByRole('heading', { level: 1, name: 'Check a URL' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { level: 1, name: 'Check a link before you click it' })).toBeInTheDocument()
 })
