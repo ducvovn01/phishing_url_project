@@ -1,0 +1,54 @@
+{
+  "target": "http://127.0.0.1:8000",
+  "body_limit": [
+    {
+      "case": "8192 bytes, Content-Length",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "seconds": 0.0111
+    },
+    {
+      "case": "8193 bytes, Content-Length",
+      "expected": 413,
+      "status": 413,
+      "ok": true,
+      "seconds": 0.0021
+    },
+    {
+      "case": "8192 bytes, chunked (no Content-Length)",
+      "expected": 200,
+      "status": 200,
+      "ok": true,
+      "seconds": 0.0068
+    },
+    {
+      "case": "8193 bytes, chunked (no Content-Length)",
+      "expected": 413,
+      "status": 413,
+      "ok": true,
+      "seconds": 0.0023
+    },
+    {
+      "case": "declared 100 MB, no body sent",
+      "expected": 413,
+      "status": 413,
+      "ok": true,
+      "seconds": 0.013
+    }
+  ],
+  "burst": {
+    "requests": 40,
+    "status_counts": {
+      "200": 31,
+      "503": 9
+    },
+    "retry_after_values_on_503": [
+      "1"
+    ],
+    "all_503_have_retry_after": true,
+    "unexpected_statuses": [],
+    "wall_seconds": 1.3148,
+    "p50_ok_seconds": 0.802
+  }
+}

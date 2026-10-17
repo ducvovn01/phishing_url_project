@@ -1,0 +1,154 @@
+{
+  "source": "data/processed/features.parquet (A2 combined dataset, train and test rows)",
+  "rows": 1607776,
+  "phishing_share": 0.5147,
+  "ip_host": {
+    "rows": 19168,
+    "phishing_share": 0.9986
+  },
+  "punycode_host": {
+    "rows": 3765,
+    "phishing_share": 0.9963
+  },
+  "long_url": {
+    "legit_quantile": 0.99,
+    "max_typical_length": 136,
+    "rows": 35932,
+    "phishing_share": 0.7893
+  },
+  "tld": {
+    "min_rows": 1000,
+    "min_phishing_share": 0.95,
+    "suffixes": {
+      "app": {
+        "rows": 9519,
+        "phishing_share": 0.9631
+      },
+      "asia": {
+        "rows": 2038,
+        "phishing_share": 0.9637
+      },
+      "buzz": {
+        "rows": 1109,
+        "phishing_share": 0.9991
+      },
+      "cf": {
+        "rows": 6353,
+        "phishing_share": 0.9906
+      },
+      "cfd": {
+        "rows": 2198,
+        "phishing_share": 1.0
+      },
+      "ci": {
+        "rows": 2040,
+        "phishing_share": 0.9946
+      },
+      "click": {
+        "rows": 1139,
+        "phishing_share": 0.9956
+      },
+      "cloud": {
+        "rows": 1193,
+        "phishing_share": 0.9681
+      },
+      "club": {
+        "rows": 4651,
+        "phishing_share": 0.9873
+      },
+      "cn": {
+        "rows": 35238,
+        "phishing_share": 0.9929
+      },
+      "dev": {
+        "rows": 6856,
+        "phishing_share": 0.9717
+      },
+      "fun": {
+        "rows": 1046,
+        "phishing_share": 0.9924
+      },
+      "gq": {
+        "rows": 4102,
+        "phishing_share": 0.9966
+      },
+      "icu": {
+        "rows": 5013,
+        "phishing_share": 0.9996
+      },
+      "link": {
+        "rows": 2980,
+        "phishing_share": 0.9815
+      },
+      "live": {
+        "rows": 1406,
+        "phishing_share": 0.963
+      },
+      "ly": {
+        "rows": 2904,
+        "phishing_share": 0.9697
+      },
+      "ml": {
+        "rows": 8716,
+        "phishing_share": 0.9985
+      },
+      "network": {
+        "rows": 1775,
+        "phishing_share": 0.9544
+      },
+      "online": {
+        "rows": 7212,
+        "phishing_share": 0.9927
+      },
+      "page": {
+        "rows": 1319,
+        "phishing_share": 0.9955
+      },
+      "pw": {
+        "rows": 2221,
+        "phishing_share": 0.9892
+      },
+      "shop": {
+        "rows": 6900,
+        "phishing_share": 0.9971
+      },
+      "site": {
+        "rows": 6856,
+        "phishing_share": 0.9956
+      },
+      "su": {
+        "rows": 1158,
+        "phishing_share": 0.9577
+      },
+      "tk": {
+        "rows": 12624,
+        "phishing_share": 0.9932
+      },
+      "top": {
+        "rows": 34581,
+        "phishing_share": 0.9996
+      },
+      "vip": {
+        "rows": 1029,
+        "phishing_share": 0.9903
+      },
+      "vu": {
+        "rows": 1792,
+        "phishing_share": 0.9955
+      },
+      "website": {
+        "rows": 1125,
+        "phishing_share": 0.9893
+      },
+      "xyz": {
+        "rows": 19031,
+        "phishing_share": 0.9922
+      }
+    }
+  },
+  "brand_lookalike": {
+    "min_label_length": 5,
+    "rows": 64,
+    "phishing_share": 0.9844
+  }
+}

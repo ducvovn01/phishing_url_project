@@ -1,0 +1,9 @@
+# Tests and experiments. lightgbm and matplotlib are only here because the parity tests
+# import the genuine scripts/predict.py, which imports scripts/train_model.py.
+-r requirements.txt
+pytest==9.1.1
+httpx2==2.13.1
+lightgbm==4.7.0
+matplotlib==3.11.2
+# experiments/homoglyph_evasion.py reads data/processed/features.parquet
+pyarrow==26.0.0
