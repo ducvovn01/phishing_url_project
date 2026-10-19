@@ -1,4 +1,5 @@
-# Phishing URL Detector (COS30049, Assignment 2)
+# Phishing URL Detector (COS30049, Assignment 3) - Cyber Security Branch
+## See `cyber-sec/` for information regarding cyber security portions of Assignment 3
 
 Machine learning code for a phishing URL detector. A URL string goes in; a phishing probability comes out. Everything is computed from the URL text alone (no page fetching, no WHOIS, no blocklist or reputation calls), so scoring works fully offline once the models are trained.
 
