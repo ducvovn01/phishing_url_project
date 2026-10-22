@@ -158,3 +158,7 @@ python scripts/analysis/check_test_urls.py --all    # every row
 - Random seeds are fixed (`RANDOM_STATE = 42` in `scripts/train_model.py`), so re-running a script on the same data reproduces its numbers.
 - Feature extraction uses `tldextract` with `suffix_list_urls=()`, so it uses the public-suffix snapshot bundled with the package and never touches the network.
 - Run every script from the project root as shown above. The scripts in `scripts/` import each other (`extract_features`, `train_model`), and the ones in `scripts/analysis/` add `scripts/` to the import path themselves.
+
+## 8. Assignment 3 backend
+
+The FastAPI service that serves the char n-gram model (`POST /analyze`, `GET /health`) is in `backend/`. See [backend/README.md](backend/README.md) for setup, run and test commands.

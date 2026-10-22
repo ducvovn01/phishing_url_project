@@ -1,0 +1,9 @@
+{
+  "artefact": "models/char_ngram.joblib",
+  "sha256": "66b9a09cb56aeccf64fc5632d178ac2ea53c126f1bc852c66f29c4a6f4829b41",
+  "name": "char_ngram_logreg",
+  "version": "a2-3fa96dd",
+  "sklearn_version": "1.9.1",
+  "phishing_class": 1,
+  "provenance": "SHA-256 of models/char_ngram.joblib as committed in 3fa96dd (merged to main in PR #1, 2026-10-07). Pinned on 2026-10-17 from `git show 3fa96dd:models/char_ngram.joblib | sha256sum`; the A2 model owner should confirm it against their original training output. Change this file only in a reviewed PR, together with the artefact."
+}
