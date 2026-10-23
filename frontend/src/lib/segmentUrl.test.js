@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { segmentUrl } from './segmentUrl.js'
+import { markSelected, segmentUrl } from './segmentUrl.js'
 
 const sig = (id, start, end, weight, direction = 'phishing') => ({ id, start, end, weight, direction })
 const plain = (text) => ({ text, signalId: null, direction: null })
@@ -79,5 +79,64 @@ describe('segmentUrl', () => {
     const url = 'https😀://xn--a.top/login?x=1'
     const signals = [sig('a', 0, 5, 1), sig('b', 3, 12, -4), sig('c', 20, 25, null), sig('bad', 30, 40, 9)]
     expect(segmentUrl(url, signals).map((p) => p.text).join('')).toBe(url)
+  })
+})
+
+describe('markSelected', () => {
+  // Contract example: the ngram ".top" (19-23) owns "top", which the rule "top" (20-23) also covers.
+  const url = 'paypa1-secure-login.top/verify'
+  const ngram = sig('ngram-1', 19, 23, 37.1)
+  const rule = sig('rule-unusual-tld', 20, 23, null)
+  const pieces = segmentUrl(url, [ngram, rule])
+
+  test('nothing selected: the pieces are returned exactly as segmentUrl made them', () => {
+    expect(markSelected(pieces, undefined)).toBe(pieces)
+    expect(markSelected(pieces, null)).toBe(pieces)
+  })
+
+  test('a selected rule under an ngram emphasises its own range, keeping the ngram as owner', () => {
+    expect(markSelected(pieces, rule)).toEqual([
+      { ...plain('paypa1-secure-login'), selected: false },
+      { text: '.', signalId: 'ngram-1', direction: 'phishing', selected: false },
+      { text: 'top', signalId: 'ngram-1', direction: 'phishing', selected: true },
+      { ...plain('/verify'), selected: false },
+    ])
+  })
+
+  test('selecting the owning ngram emphasises the same characters as before', () => {
+    const marked = markSelected(pieces, ngram)
+    expect(marked.filter((p) => p.selected).map((p) => [p.text, p.signalId])).toEqual([['.top', 'ngram-1']])
+    expect(marked.map((p) => p.text).join('')).toBe(url)
+  })
+
+  test('a lighter ngram under a heavier one emphasises its whole range, across owners', () => {
+    const big = sig('big', 2, 5, 9)
+    const small = sig('small', 0, 4, -1, 'legitimate')
+    expect(markSelected(segmentUrl('abcdef', [big, small]), small)).toEqual([
+      { text: 'ab', signalId: 'small', direction: 'legitimate', selected: true },
+      { text: 'cd', signalId: 'big', direction: 'phishing', selected: true },
+      { text: 'e', signalId: 'big', direction: 'phishing', selected: false },
+      { ...plain('f'), selected: false },
+    ])
+  })
+
+  test.each([
+    ['missing range', { id: 'x' }],
+    ['null range', sig('x', null, null, null)],
+    ['non-integer', sig('x', 1.5, 3, 1)],
+    ['string offsets', sig('x', '1', '3', 1)],
+    ['out of bounds', sig('x', 2, 99, 1)],
+    ['negative start', sig('x', -1, 2, 1)],
+    ['empty range', sig('x', 3, 3, 1)],
+  ])('ignores an invalid range (%s) without throwing', (_, bad) => {
+    expect(markSelected(pieces, bad)).toBe(pieces)
+  })
+
+  test('offsets are code points, so an emoji does not shift the range', () => {
+    const emojiUrl = '😀😀login.top'
+    const rule2 = sig('rule', 8, 11, null) // "top"
+    const marked = markSelected(segmentUrl(emojiUrl, [sig('n', 2, 7, 3), rule2]), rule2)
+    expect(marked.filter((p) => p.selected).map((p) => p.text)).toEqual(['top'])
+    expect(marked.map((p) => p.text).join('')).toBe(emojiUrl)
   })
 })

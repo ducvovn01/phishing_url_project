@@ -86,6 +86,27 @@ describe('HomePage', () => {
     expect(signal).toHaveAttribute('aria-pressed', 'false')
   })
 
+  test('selecting a rule under an ngram emphasises its own characters in the URL', async () => {
+    analyseUrl.mockResolvedValue(PHISHING)
+    const { container } = renderApp()
+    const user = await check('paypa1-secure-login.top/verify')
+    const url = (await screen.findByRole('region', { name: 'Analysis details' })).querySelector('p')
+    const emphasised = () => Array.from(url.querySelectorAll('mark')).filter((m) => getComputedStyle(m).fontWeight === '700').map((m) => m.textContent)
+
+    expect(Array.from(url.querySelectorAll('mark'), (m) => m.textContent)).toEqual(['.top'])
+    expect(emphasised()).toEqual([])
+
+    await user.click(screen.getByRole('button', { name: /Unusual top-level domain/ }))
+    expect(Array.from(url.querySelectorAll('mark'), (m) => m.textContent)).toEqual(['.', 'top'])
+    expect(emphasised()).toEqual(['top'])
+    expect(url).toHaveTextContent('paypa1-secure-login.top/verify')
+    expect(url.querySelector('a')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /Pattern linked to phishing/ }))
+    expect(emphasised()).toEqual(['.top'])
+    expect(container.querySelectorAll('a[href*="paypa1"]')).toHaveLength(0)
+  })
+
   test('clearing the form resets the selection', async () => {
     analyseUrl.mockResolvedValue(PHISHING)
     renderApp()

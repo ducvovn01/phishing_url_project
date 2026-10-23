@@ -1,7 +1,7 @@
 import { Box, ButtonBase, Chip, Typography } from '@mui/material'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
-import { segmentUrl } from '../../lib/segmentUrl.js'
+import { markSelected, segmentUrl } from '../../lib/segmentUrl.js'
 
 // Each direction gets its own underline style as well as its tint, so meaning never relies on colour.
 const markSx = {
@@ -28,7 +28,9 @@ function Mark({ direction, selected, children }) {
 export default function AnalysisPanel({ result, selectedId, onSelect }) {
   const toggle = (id) => onSelect(selectedId === id ? null : id)
 
-  const segments = segmentUrl(result.analysed_url, result.signals)
+  // The selected signal's own range is emphasised even where a heavier signal owns the characters.
+  const selectedSignal = result.signals.find((s) => s.id === selectedId)
+  const segments = markSelected(segmentUrl(result.analysed_url, result.signals), selectedSignal)
 
   return (
     <Box
@@ -51,7 +53,7 @@ export default function AnalysisPanel({ result, selectedId, onSelect }) {
           s.signalId === null ? (
             <span key={i}>{s.text}</span>
           ) : (
-            <Mark key={i} direction={s.direction} selected={s.signalId === selectedId}>
+            <Mark key={i} direction={s.direction} selected={s.selected === true}>
               {s.text}
             </Mark>
           ),
