@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { lazy, Suspense, useRef } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import { Box, Button, Link, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
 import GppBadIcon from '@mui/icons-material/GppBad'
@@ -8,6 +8,9 @@ import usePageTitle from '../hooks/usePageTitle.js'
 import { summariseSession } from '../lib/sessionSummary.js'
 import { useSession } from '../session/useSession.js'
 
+// Lazy so the charts and @mui/x-charts stay out of the main bundle.
+const SessionCharts = lazy(() => import('../components/session/SessionCharts.jsx'))
+
 const focusSx = { '&:focus': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: '4px' } }
 const formatTime = (date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
@@ -15,7 +18,8 @@ export default function SessionPage() {
   usePageTitle('This session')
   const { results, clear } = useSession()
   const headingRef = useRef(null)
-  const { total, phishingCount, legitimateCount, rows } = summariseSession(results)
+  const summary = summariseSession(results)
+  const { total, phishingCount, legitimateCount, rows } = summary
 
   function handleClear() {
     clear()
@@ -45,6 +49,12 @@ export default function SessionPage() {
           <Typography sx={{ mb: 2, fontWeight: 600 }}>
             {total === 1 ? '1 check' : `${total} checks`}: {phishingCount} likely phishing, {legitimateCount} likely legitimate
           </Typography>
+
+          <Box sx={{ mb: 3 }}>
+            <Suspense fallback={<Typography component="output" sx={{ display: 'block' }}>Loading charts...</Typography>}>
+              <SessionCharts summary={summary} />
+            </Suspense>
+          </Box>
 
           <Box
             component="section"

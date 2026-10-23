@@ -3,6 +3,15 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { renderApp } from '../test/renderApp.jsx'
 
+// jsdom has no SVG layout; the stubs show what the session charts were given.
+vi.mock('@mui/x-charts/PieChart', () => ({
+  PieChart: ({ series }) => <div data-testid="pie-chart">{series[0].data.map((d) => `${d.id}=${d.value}`).join(' ')}</div>,
+}))
+vi.mock('@mui/x-charts/BarChart', () => ({
+  BarChart: ({ series }) => <div data-testid="bar-chart">{series[0].data.join(' ')}</div>,
+}))
+vi.mock('@mui/x-charts/ChartsReferenceLine', () => ({ ChartsReferenceLine: () => null }))
+
 const result = (submitted, label) => ({
   submitted_url: submitted,
   analysed_url: submitted.replace(/^[a-z]+:\/\//i, '').toLowerCase(),
@@ -34,6 +43,47 @@ afterEach(() => {
 })
 
 describe('SessionPage', () => {
+  // Must run first in this file: once the lazy import has resolved, later renders no longer suspend.
+  test('with checks: "Loading charts..." shows first, then the charts between the summary and the table', async () => {
+    renderWith(result('bad.top', 'phishing'), result('example.com', 'legitimate'))
+    expect(screen.getByRole('status')).toHaveTextContent('Loading charts...')
+    const donut = await screen.findByRole('heading', { level: 2, name: 'Results at a glance' })
+    const bars = screen.getByRole('heading', { level: 2, name: 'Trust score for each check' })
+    expect(screen.queryByText('Loading charts...')).not.toBeInTheDocument()
+    const summary = screen.getByText('2 checks: 1 likely phishing, 1 likely legitimate')
+    const table = screen.getByRole('region', { name: 'Checked links table' })
+    const follows = (a, b) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(follows(summary, donut) && follows(donut, bars) && follows(bars, table)).toBe(true)
+  })
+
+  test('with no checks, the charts are not rendered', () => {
+    renderWith()
+    expect(screen.queryByText('Loading charts...')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Results at a glance' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Trust score for each check' })).not.toBeInTheDocument()
+    expect(screen.getByText(/You haven't checked any links yet\./)).toBeInTheDocument()
+  })
+
+  test('adding a result or clearing updates the charts without a reload', async () => {
+    const { session, user } = renderWith(result('bad.top', 'phishing'))
+    // One check: both charts show their "check at least two links" message.
+    expect(await screen.findByText('Check at least two links to compare results here.')).toBeInTheDocument()
+    expect(screen.getByText('Check at least two links to compare trust scores here.')).toBeInTheDocument()
+
+    act(() => session.current.addResult(result('example.com', 'legitimate')))
+    expect(screen.getByTestId('pie-chart')).toHaveTextContent('phishing=1 legitimate=1')
+    expect(screen.getByTestId('bar-chart')).toHaveTextContent('10 90')
+
+    act(() => session.current.addResult(result('worse.top', 'phishing')))
+    expect(screen.getByTestId('pie-chart')).toHaveTextContent('phishing=2 legitimate=1')
+    expect(screen.getByTestId('bar-chart')).toHaveTextContent('10 90 10')
+    expect(screen.getByRole('img', { name: /^Donut chart of 3 checks/ })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Clear session' }))
+    expect(screen.queryByTestId('pie-chart')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('bar-chart')).not.toBeInTheDocument()
+  })
+
   test('empty state shows the message and a link to "/", and sets the title', () => {
     renderWith()
     expect(screen.getByRole('heading', { level: 1, name: 'This session' })).toBeInTheDocument()
