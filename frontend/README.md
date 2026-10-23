@@ -28,3 +28,10 @@ Any URL containing a trigger (case-insensitive) gets that outcome. Use the dotte
 - `WeightChart` is loaded with `React.lazy`, so the chart code and `@mui/x-charts` sit in their own chunk, not in the main bundle.
 - The bars show only the `weight` values returned by the API. Rule-based signals have no weight (`null`), so they are left out of the chart and listed in the signal list instead.
 - "Show data as a table" below the chart shows the same data as an HTML table, for people who cannot use the chart.
+
+## Session page
+
+- Results are kept in memory only (React state), never in `localStorage`, `sessionStorage` or cookies. They are cleared when the tab is refreshed or closed, or with the "Clear session" button.
+- The donut shows the share of phishing and legitimate verdicts; the bar chart shows the trust score for each check (the 12 most recent).
+- Both charts have a "Show data as a table" button with the same data as an HTML table.
+- The charts are loaded with `React.lazy`, so they stay out of the main bundle.
