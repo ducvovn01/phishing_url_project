@@ -2,6 +2,7 @@ import { Box, Stack, Typography } from '@mui/material'
 import GppBadIcon from '@mui/icons-material/GppBad'
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser'
 import { verdictText } from '../../content/verdictText.js'
+import { formatConfidence } from '../../lib/formatConfidence.js'
 
 export default function VerdictBanner({ result, headingRef }) {
   const tone = result.label === 'phishing' ? 'phishing' : 'legitimate'
@@ -33,7 +34,7 @@ export default function VerdictBanner({ result, headingRef }) {
             {verdictText(result.label)}
           </Typography>
           <Typography sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 700, color: 'text.primary' }}>
-            {Math.round(result.confidence * 100)}% confidence
+            {formatConfidence(result.confidence)} confidence
           </Typography>
         </Box>
       </Stack>
