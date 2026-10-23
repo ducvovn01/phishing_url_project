@@ -1,9 +1,12 @@
-import { useState } from 'react'
-import { Box } from '@mui/material'
+import { lazy, Suspense, useState } from 'react'
+import { Box, Typography } from '@mui/material'
 import AnalysisPanel from './AnalysisPanel.jsx'
 import SubmittedUrl from './SubmittedUrl.jsx'
 import TrustScore from './TrustScore.jsx'
 import VerdictBanner from './VerdictBanner.jsx'
+
+// Lazy so the chart and @mui/x-charts load in their own chunk, after the verdict.
+const WeightChart = lazy(() => import('./WeightChart.jsx'))
 
 /**
  * The success cells of HomePage's grid. A fragment, so the cells stay direct grid children and
@@ -29,6 +32,12 @@ export default function ResultView({ result, verdictRef }) {
       </Box>
       <Box sx={{ gridArea: 'analysis' }}>
         <AnalysisPanel result={result} selectedId={selectedSignalId} onSelect={onSelect} />
+        <Box sx={{ mt: 3 }}>
+          <Suspense fallback={<Typography component="output" sx={{ display: 'block' }}>Loading chart...</Typography>}>
+            {/* Clicking the selected bar again deselects it, the same as the list. */}
+            <WeightChart signals={result.signals} selectedId={selectedSignalId} onSelect={(id) => onSelect(id === selectedSignalId ? null : id)} />
+          </Suspense>
+        </Box>
       </Box>
     </>
   )
