@@ -36,6 +36,17 @@ describe('UrlForm', () => {
     expect(field).toHaveFocus()
   })
 
+  test('the helper and error text is a polite live region, so an error is announced even without a focus move', async () => {
+    const { user, field } = setup()
+    const helper = document.getElementById(field.getAttribute('aria-describedby'))
+    expect(helper).toHaveAttribute('aria-live', 'polite')
+    field.focus()
+    await user.keyboard('{Enter}')
+    expect(field).toHaveFocus()
+    expect(helper).toHaveTextContent(EMPTY)
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+  })
+
   test('the error clears while typing after a failed submit', async () => {
     const { user, field } = setup()
     await user.type(field, 'localhost{Enter}')

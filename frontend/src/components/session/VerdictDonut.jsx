@@ -63,7 +63,14 @@ export default function VerdictDonut({ summary }) {
           <Button variant="text" aria-expanded={showTable} aria-controls={tableId} onClick={() => setShowTable((v) => !v)} sx={{ mt: 1 }}>
             {showTable ? 'Hide table' : 'Show data as a table'}
           </Button>
-          <Box id={tableId} hidden={!showTable} sx={{ overflowX: 'auto' }}>
+          <Box
+            component="section"
+            id={tableId}
+            hidden={!showTable}
+            aria-label="Results data table"
+            tabIndex={0}
+            sx={{ overflowX: 'auto', '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 } }}
+          >
             {showTable && (
               <Table size="small">
                 <TableHead>

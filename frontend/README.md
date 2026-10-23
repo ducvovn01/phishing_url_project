@@ -35,3 +35,5 @@ Any URL containing a trigger (case-insensitive) gets that outcome. Use the dotte
 - The donut shows the share of phishing and legitimate verdicts; the bar chart shows the trust score for each check (the 12 most recent).
 - Both charts have a "Show data as a table" button with the same data as an HTML table.
 - The charts are loaded with `React.lazy`, so they stay out of the main bundle.
+
+Accessibility and responsive layout evidence: [docs/accessibility.md](../docs/accessibility.md).

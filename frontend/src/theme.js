@@ -8,6 +8,8 @@ const base = createTheme({
     primary: { main: '#1565c0' },
     text: { primary: '#212121', secondary: '#555555' },
     background: { default: '#ffffff', paper: '#ffffff' },
+    // Disabled text (the "Analysing..." button) at 4.5:1 on the disabled background; MUI's default is about 1.8:1.
+    action: { disabled: '#555555' },
   },
   typography: {
     fontFamily:
@@ -26,6 +28,27 @@ const base = createTheme({
     MuiButtonBase: {
       styleOverrides: {
         root: { '&.Mui-focusVisible': { outline: '2px solid #212121', outlineOffset: 2 } },
+      },
+    },
+    // Links are not ButtonBase, so they need their own visible focus ring (currentColor is 4.5:1 or better).
+    MuiLink: {
+      styleOverrides: { root: { '&:focus-visible': { outline: '2px solid', outlineOffset: 2 } } },
+    },
+    // 44px touch targets on phones; MUI's small and medium buttons are 31px and 37px tall.
+    MuiButton: {
+      styleOverrides: { root: ({ theme }) => ({ [theme.breakpoints.down('sm')]: { minHeight: 44 } }) },
+    },
+    // Stops the spinners, ripples and transitions when the user asks for less motion.
+    MuiCssBaseline: {
+      styleOverrides: {
+        '@media (prefers-reduced-motion: reduce)': {
+          '*, *::before, *::after': {
+            animationDuration: '0.01ms !important',
+            animationIterationCount: '1 !important',
+            transitionDuration: '0.01ms !important',
+            scrollBehavior: 'auto !important',
+          },
+        },
       },
     },
   },

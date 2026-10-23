@@ -77,6 +77,8 @@ export default function UrlForm({ onSubmit, loading = false, serverError = null,
           helperText={errorMessage ?? HELPER_TEXT}
           slotProps={{
             htmlInput: { spellCheck: false, inputMode: 'url', autoCapitalize: 'none', autoCorrect: 'off' },
+            // Announces a new error even when focus is already in the field (submitting with Enter).
+            formHelperText: { 'aria-live': 'polite' },
           }}
         />
         <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>

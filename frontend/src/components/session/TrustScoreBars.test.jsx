@@ -126,6 +126,11 @@ describe('TrustScoreBars', () => {
     expect(toggle).toHaveAccessibleName('Hide table')
     const table = screen.getByRole('table')
     expect(document.getElementById(toggle.getAttribute('aria-controls'))).toContainElement(table)
+    // A narrow screen scrolls the table inside its own region, which keyboard users can focus.
+    const region = screen.getByRole('region', { name: 'Trust scores data table' })
+    expect(region).toContainElement(table)
+    expect(region).toHaveAttribute('tabindex', '0')
+    expect(getComputedStyle(region).overflowX).toBe('auto')
     expect(within(table).getAllByRole('row').map((r) => Array.from(r.querySelectorAll('th, td'), (c) => c.textContent))).toEqual([
       ['#', 'Link', 'Result', 'Trust score'],
       ['1', js, 'Likely phishing', '7'],
