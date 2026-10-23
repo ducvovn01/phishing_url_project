@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import UrlForm from '../components/UrlForm.jsx'
-import AnalysisPanel from '../components/results/AnalysisPanel.jsx'
 import ErrorState from '../components/results/ErrorState.jsx'
 import LoadingState from '../components/results/LoadingState.jsx'
-import SubmittedUrl from '../components/results/SubmittedUrl.jsx'
-import TrustScore from '../components/results/TrustScore.jsx'
-import VerdictBanner from '../components/results/VerdictBanner.jsx'
+import ResultView from '../components/results/ResultView.jsx'
 import { TRUST_SCORE_NOTE } from '../content/trustScoreNote.js'
 import { verdictText } from '../content/verdictText.js'
 import useAnalysis from '../hooks/useAnalysis.js'
@@ -88,26 +85,7 @@ export default function HomePage() {
           </Box>
         )}
 
-        {success && (
-          <Box sx={{ gridArea: 'url' }}>
-            <SubmittedUrl url={result.submitted_url} />
-          </Box>
-        )}
-        {success && (
-          <Box sx={{ gridArea: 'verdict' }}>
-            <VerdictBanner result={result} headingRef={verdictRef} />
-          </Box>
-        )}
-        {success && (
-          <Box sx={{ gridArea: 'score' }}>
-            <TrustScore result={result} />
-          </Box>
-        )}
-        {success && (
-          <Box sx={{ gridArea: 'analysis' }}>
-            <AnalysisPanel result={result} />
-          </Box>
-        )}
+        {success && <ResultView result={result} verdictRef={verdictRef} />}
 
         {status === 'idle' && (
           <Box component="section" aria-labelledby="how-it-works" sx={{ gridArea: 'explainer', width: '100%', maxWidth: 720, justifySelf: 'center' }}>

@@ -86,6 +86,16 @@ describe('HomePage', () => {
     expect(signal).toHaveAttribute('aria-pressed', 'false')
   })
 
+  test('clearing the form resets the selection', async () => {
+    analyseUrl.mockResolvedValue(PHISHING)
+    renderApp()
+    const user = await check('paypa1-secure-login.top/verify')
+    await user.click(await screen.findByRole('button', { name: /Pattern linked to phishing/ }))
+    await user.click(screen.getByRole('button', { name: 'Clear' }))
+    await check('paypa1-secure-login.top/verify')
+    expect(await screen.findByRole('button', { name: /Pattern linked to phishing/ })).toHaveAttribute('aria-pressed', 'false')
+  })
+
   test('a javascript: URL is shown as plain text and never becomes a link', async () => {
     const url = 'javascript:alert(document.domain)'
     analyseUrl.mockImplementation(async (value) => ({

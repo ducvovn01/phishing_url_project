@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Box, ButtonBase, Chip, Typography } from '@mui/material'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
@@ -25,11 +24,9 @@ function Mark({ direction, selected, children }) {
   )
 }
 
-export default function AnalysisPanel({ result }) {
-  // Selection lives here; it resets when a new result arrives.
-  const [selection, setSelection] = useState({ result, id: null })
-  const selectedId = selection.result === result ? selection.id : null
-  const toggle = (id) => setSelection({ result, id: selectedId === id ? null : id })
+// Controlled: the parent owns the selection. Selecting the selected signal again deselects it.
+export default function AnalysisPanel({ result, selectedId, onSelect }) {
+  const toggle = (id) => onSelect(selectedId === id ? null : id)
 
   const segments = segmentUrl(result.analysed_url, result.signals)
 
