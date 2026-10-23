@@ -1,9 +1,14 @@
-// Rules 1 to 4 mirror the backend contract (docs/api-contract.md, sections 2 and 3.1) exactly.
-// Rule 5 is a front-end usability check only; the backend stays the authority.
+// Rules 1 to 6 mirror backend/app/validation.py (check_url) and the contract (docs/api-contract.md,
+// sections 2 and 3.1). Rule 7 is a front-end usability check only; the backend stays the authority.
 
 export const MAX_URL_LENGTH = 2048
 
 const SCHEME = /^[a-z][a-z0-9+.-]*:\/\//i
+// Same categories as REJECTED_CATEGORIES in validation.py; the space and control checks catch most of them first.
+const HIDDEN = /[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}\p{Zs}]/u
+// A scheme as validation.py's _has_scheme sees it: not "host:port" (digit after the colon) and no "." in it.
+const SCHEME_PREFIX = /^([a-z][a-z0-9+.-]*):(?!\d)/i
+const ALLOWED_SCHEMES = new Set(['http', 'https'])
 
 const fail = (value, message) => ({ valid: false, value, message })
 
@@ -23,6 +28,14 @@ export function validateUrl(raw) {
   }
   if (/\p{Cc}/u.test(value)) {
     return fail(value, "That URL contains characters that aren't allowed. Try copying it again.")
+  }
+  if (HIDDEN.test(value)) {
+    return fail(value, 'That URL contains hidden characters. Try copying it again.')
+  }
+  // Scheme optional, as in the backend; when present it must be http:// or https://.
+  const scheme = SCHEME_PREFIX.exec(value)
+  if (scheme && !scheme[1].includes('.') && !(ALLOWED_SCHEMES.has(scheme[1].toLowerCase()) && value.startsWith('//', scheme[0].length))) {
+    return fail(value, 'Only web addresses starting with http:// or https:// can be checked.')
   }
   const host = value.replace(SCHEME, '').split(/[/?#]/, 1)[0]
   if (!/[^.]\.[^.]/.test(host)) {

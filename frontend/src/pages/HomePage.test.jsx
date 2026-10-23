@@ -98,14 +98,15 @@ describe('HomePage', () => {
 
   test('a javascript: URL is shown as plain text and never becomes a link', async () => {
     const url = 'javascript:alert(document.domain)'
-    analyseUrl.mockImplementation(async (value) => ({
-      ...PHISHING,
-      submitted_url: value,
-      analysed_url: value.toLowerCase(),
-      signals: [],
-    }))
+    // The form now rejects this scheme, so the response carries it, as a misbehaving backend might.
+    analyseUrl.mockResolvedValue({ ...PHISHING, submitted_url: url, analysed_url: url, signals: [] })
     const { container } = renderApp()
-    await check(url)
+    const user = await check(url)
+    expect(await screen.findByText('Only web addresses starting with http:// or https:// can be checked.')).toBeInTheDocument()
+    expect(analyseUrl).not.toHaveBeenCalled()
+
+    await user.clear(field())
+    await check('example.com')
 
     await screen.findByRole('heading', { level: 2, name: 'Likely phishing' })
     const checked = screen.getByText('Checked:').parentElement
