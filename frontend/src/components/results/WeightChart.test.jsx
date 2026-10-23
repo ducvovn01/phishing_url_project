@@ -61,7 +61,9 @@ describe('WeightChart', () => {
   test('heading, sentence, horizontal bars sorted by absolute weight', () => {
     renderChart()
     expect(screen.getByRole('heading', { level: 2, name: 'How much each part counted' })).toBeInTheDocument()
-    expect(screen.getByText(/Bars to the right push the result towards phishing\./)).toBeInTheDocument()
+    expect(screen.getByText(/Bars to the right push the result towards phishing\./)).toHaveTextContent(
+      "Bars to the right push the result towards phishing. Bars to the left push it towards legitimate. Longer bars counted more. The numbers are the model's own scores, not percentages.",
+    )
     expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-layout', 'horizontal')
     expect(within(screen.getByTestId('bar-chart')).getAllByRole('button').map((b) => b.textContent)).toEqual(['.top', 'www.', 'login'])
     expect(screen.getByText('← Lowers risk')).toBeInTheDocument()

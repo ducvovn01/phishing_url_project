@@ -75,7 +75,9 @@ describe('TrustScoreBars', () => {
     expect(bars().map((b) => b.textContent)).toEqual(['#1', '#2', '#3'])
     expect(screen.getByTestId('bar-chart')).toHaveAttribute('data-y', '0-100 0,25,50,75,100')
     expect(screen.getByTestId('reference')).toHaveAttribute('data-y', '50')
-    expect(screen.getByTestId('reference')).toHaveAttribute('data-label', '50')
+    // No label on the line: it overlapped the bars at narrow widths; the axis has the 50 tick.
+    expect(screen.getByTestId('reference')).not.toHaveAttribute('data-label')
+    expect(screen.getByText('The dashed line marks a trust score of 50.')).toBeInTheDocument()
     expect(bars()[0]).toHaveAttribute('data-label', 'value')
     expect(bars()[0]).toHaveAttribute('data-tooltip', '#1 site1.com/x: Likely phishing, trust score 7')
     expect(bars()[1]).toHaveAttribute('data-tooltip', '#2 site2.com/x: Likely legitimate, trust score 96')

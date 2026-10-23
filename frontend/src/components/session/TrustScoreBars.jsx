@@ -33,6 +33,9 @@ export default function TrustScoreBars({ summary: session }) {
       <Typography variant="body2" gutterBottom>
         Higher is safer. 100 means no sign of phishing was found, 0 means very likely phishing.
       </Typography>
+      <Typography variant="body2" gutterBottom>
+        The dashed line marks a trust score of 50.
+      </Typography>
 
       {allRows.length < 2 ? (
         <Typography>Check at least two links to compare trust scores here.</Typography>
@@ -68,7 +71,7 @@ export default function TrustScoreBars({ summary: session }) {
                 },
               ]}
             >
-              <ChartsReferenceLine y={50} label="50" labelAlign="end" lineStyle={{ stroke: theme.palette.text.secondary, strokeDasharray: '4 4' }} />
+              <ChartsReferenceLine y={50} lineStyle={{ stroke: theme.palette.text.secondary, strokeDasharray: '4 4' }} />
             </BarChart>
           </Box>
 

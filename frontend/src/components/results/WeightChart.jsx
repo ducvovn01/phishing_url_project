@@ -40,7 +40,7 @@ export default function WeightChart({ signals, selectedId, onSelect }) {
       </Typography>
       <Typography variant="body2" gutterBottom>
         Bars to the right push the result towards phishing. Bars to the left push it towards legitimate. Longer bars
-        counted more.
+        counted more. The numbers are the model&apos;s own scores, not percentages.
       </Typography>
 
       {rows.length === 0 ? (
