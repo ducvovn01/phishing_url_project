@@ -9,7 +9,7 @@ const TITLES = {
 
 // Shows only code-derived title, message, request_id and retry wait. Never the error object, stack or details.
 export default function ErrorState({ error, onRetry, titleRef }) {
-  const wait = error.code === 'service_busy' && Number.isFinite(error.retryAfterSeconds) ? error.retryAfterSeconds : null
+  const wait = error.code === 'service_busy' && Number.isFinite(error.retryAfterSeconds) && error.retryAfterSeconds > 0 ? error.retryAfterSeconds : null
 
   return (
     <Alert
@@ -31,7 +31,7 @@ export default function ErrorState({ error, onRetry, titleRef }) {
         {TITLES[error.code] ?? 'Something went wrong'}
       </AlertTitle>
       <Typography>{error.message}</Typography>
-      {wait !== null && <Typography>Please wait about {wait} seconds, then try again.</Typography>}
+      {wait !== null && <Typography>Please wait about {wait === 1 ? '1 second' : `${wait} seconds`}, then try again.</Typography>}
       {error.request_id && (
         <Typography variant="body2" sx={{ mt: 1 }}>
           Reference: {error.request_id}

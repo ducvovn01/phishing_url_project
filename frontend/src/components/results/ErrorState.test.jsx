@@ -18,3 +18,18 @@ test('"Try again" is a button inside the alert and calls the retry handler', asy
   await user.keyboard('{Enter}')
   expect(onRetry).toHaveBeenCalledTimes(2)
 })
+
+test.each([
+  [1, 'Please wait about 1 second, then try again.'],
+  [2, 'Please wait about 2 seconds, then try again.'],
+  [30, 'Please wait about 30 seconds, then try again.'],
+])('service_busy with Retry-After %s shows "%s"', (seconds, line) => {
+  render(<ErrorState error={new ApiError('service_busy', { retryAfterSeconds: seconds })} onRetry={() => {}} />)
+  expect(screen.getByText(line)).toBeInTheDocument()
+})
+
+test.each([0, -5, NaN, Infinity, undefined])('service_busy with Retry-After %s shows no wait line', (seconds) => {
+  render(<ErrorState error={new ApiError('service_busy', { retryAfterSeconds: seconds })} onRetry={() => {}} />)
+  expect(screen.getByRole('alert')).toBeInTheDocument()
+  expect(screen.queryByText(/Please wait about/)).not.toBeInTheDocument()
+})
