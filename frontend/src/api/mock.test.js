@@ -56,6 +56,7 @@ describe('mock analyseUrl', () => {
 
   test.each([
     ['https://mock-busy.test', { code: 'service_busy', retryAfterSeconds: 5 }],
+    ['https://mock-ratelimit.test', { code: 'rate_limited', retryAfterSeconds: 10, request_id: 'mock' }],
     ['https://mock-error.test', { code: 'internal_error' }],
     ['https://mock-offline.test', { code: 'backend_unavailable' }],
   ])('%s fails with %o', async (url, expected) => {
@@ -113,6 +114,7 @@ test('mock-invalid fails with validation_error, details and a request_id', async
 describe('mock special inputs and their dotted aliases', () => {
   const SPECIALS = [
     ['mock-busy', 'busy.mock'],
+    ['mock-ratelimit', 'ratelimit.mock'],
     ['mock-error', 'error.mock'],
     ['mock-offline', 'offline.mock'],
     ['mock-invalid', 'invalid.mock'],

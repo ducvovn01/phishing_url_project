@@ -108,6 +108,11 @@ describe('analyseUrl', () => {
     await expect(analyseUrl('a.com')).rejects.toMatchObject({ code: 'internal_error', message: DEFAULT_MESSAGES.internal_error })
   })
 
+  test('a 200 with duplicate signal ids becomes internal_error', async () => {
+    reply(200, { ...VALID, signals: [VALID.signals[0], { ...VALID.signals[1], id: VALID.signals[0].id }] })
+    await expect(analyseUrl('a.com')).rejects.toMatchObject({ code: 'internal_error', message: DEFAULT_MESSAGES.internal_error })
+  })
+
   test('an error body with an unknown code is kept as is', async () => {
     reply(500, { error: { code: 'model_on_fire', message: 'The model is resting.', details: [], request_id: 'zz1' } })
     await expect(analyseUrl('a.com')).rejects.toMatchObject({ code: 'model_on_fire', message: 'The model is resting.', request_id: 'zz1' })

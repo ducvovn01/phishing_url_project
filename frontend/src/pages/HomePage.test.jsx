@@ -174,6 +174,14 @@ describe('HomePage', () => {
     expect(screen.getByText('Please wait about 5 seconds, then try again.')).toBeInTheDocument()
   })
 
+  test('rate_limited shows its title and the wait text', async () => {
+    analyseUrl.mockRejectedValue(new ApiError('rate_limited', { retryAfterSeconds: 10, request_id: 'mock' }))
+    renderApp()
+    await check('example.com')
+    expect(await screen.findByRole('heading', { name: 'Too many requests' })).toBeInTheDocument()
+    expect(screen.getByText('Please wait about 10 seconds, then try again.')).toBeInTheDocument()
+  })
+
   test('loading shows a status message and a disabled submit button', async () => {
     analyseUrl.mockReturnValue(new Promise(() => {}))
     renderApp()

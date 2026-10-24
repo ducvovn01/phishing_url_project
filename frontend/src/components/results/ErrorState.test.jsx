@@ -28,6 +28,18 @@ test.each([
   expect(screen.getByText(line)).toBeInTheDocument()
 })
 
+test('rate_limited has its own title and shows the wait line', () => {
+  render(<ErrorState error={new ApiError('rate_limited', { retryAfterSeconds: 10 })} onRetry={() => {}} />)
+  expect(screen.getByRole('heading', { level: 2, name: 'Too many requests' })).toBeInTheDocument()
+  expect(screen.getByText('Too many requests. Please wait a moment and try again.')).toBeInTheDocument()
+  expect(screen.getByText('Please wait about 10 seconds, then try again.')).toBeInTheDocument()
+})
+
+test('rate_limited with Retry-After 1 uses the singular', () => {
+  render(<ErrorState error={new ApiError('rate_limited', { retryAfterSeconds: 1 })} onRetry={() => {}} />)
+  expect(screen.getByText('Please wait about 1 second, then try again.')).toBeInTheDocument()
+})
+
 test.each([0, -5, NaN, Infinity, undefined])('service_busy with Retry-After %s shows no wait line', (seconds) => {
   render(<ErrorState error={new ApiError('service_busy', { retryAfterSeconds: seconds })} onRetry={() => {}} />)
   expect(screen.getByRole('alert')).toBeInTheDocument()

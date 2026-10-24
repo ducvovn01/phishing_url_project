@@ -3,13 +3,14 @@ import { Alert, AlertTitle, Button, Typography } from '@mui/material'
 const TITLES = {
   validation_error: 'Check the URL',
   service_busy: 'The checker is busy',
+  rate_limited: 'Too many requests',
   backend_unavailable: "We can't reach the checker",
   payload_too_large: 'That request was too large',
 }
 
 // Shows only code-derived title, message, request_id and retry wait. Never the error object, stack or details.
 export default function ErrorState({ error, onRetry, titleRef }) {
-  const wait = error.code === 'service_busy' && Number.isFinite(error.retryAfterSeconds) && error.retryAfterSeconds > 0 ? error.retryAfterSeconds : null
+  const wait = ['service_busy', 'rate_limited'].includes(error.code) && Number.isFinite(error.retryAfterSeconds) && error.retryAfterSeconds > 0 ? error.retryAfterSeconds : null
 
   return (
     <Alert

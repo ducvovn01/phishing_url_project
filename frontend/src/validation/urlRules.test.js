@@ -28,12 +28,20 @@ describe('validateUrl', () => {
     ['a.com/\u0000', CONTROL],
     ['a.com/\u007f', CONTROL],
     ['https://', NOT_URL],
-    ['localhost', NOT_URL],
+    ['example', NOT_URL],
     ['example.', NOT_URL],
     ['.com', NOT_URL],
-    ['https://localhost/a.b', NOT_URL], // the dot must be in the host part
-    ['localhost?q=a.b', NOT_URL],
-    ['localhost#a.b', NOT_URL],
+    ['https://example/a.b', NOT_URL], // the dot must be in the host part
+    ['example?q=a.b', NOT_URL],
+    ['example#a.b', NOT_URL],
+    // IPv6 literals need both brackets.
+    ['2001:db8::1', NOT_URL],
+    ['http://2001:db8::1/login', NOT_URL],
+    ['http://[2001:db8::1/login', NOT_URL],
+    ['http://[::1:8080/a', NOT_URL],
+    ['http://[]/a', NOT_URL],
+    ['localhostx', NOT_URL],
+    ['http://localhost:port/a', NOT_URL],
     ['ftp://', SCHEME],
     // Schemes: only http:// and https:// (backend/app/validation.py, ALLOWED_SCHEMES).
     ['ftp://x.com', SCHEME],
@@ -85,6 +93,18 @@ describe('validateUrl', () => {
     'https://mock-error.test',
     'https://mock-offline.test',
     'https://mock-invalid.test',
+    'ratelimit.mock',
+    'https://mock-ratelimit.test',
+    // Bracketed IPv6 literals and localhost, each with an optional port.
+    'http://[2001:db8::1]/login',
+    'http://[::1]:8080/a',
+    '[::1]',
+    'http://localhost:8000/a',
+    'localhost',
+    'LOCALHOST:8000',
+    'https://LocalHost/a.b',
+    'localhost?q=a.b',
+    'localhost.evil', // not the localhost rule: accepted by the dot rule like any other name
   ])('accepts %j', (input) => {
     expect(validateUrl(input)).toEqual({ valid: true, value: input.trim(), message: null })
   })

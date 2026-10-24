@@ -4,6 +4,7 @@ export const DEFAULT_MESSAGES = {
   validation_error: "That doesn't look like a valid URL.",
   payload_too_large: 'That request is too large. Try a shorter URL.',
   service_busy: 'The service is busy. Please try again in a few seconds.',
+  rate_limited: 'Too many requests. Please wait a moment and try again.',
   not_found: 'That address was not found on the server.',
   method_not_allowed: 'The server did not accept that request.',
   internal_error: 'Something went wrong on our side. Please try again.',
@@ -14,6 +15,7 @@ const STATUS_CODES = {
   422: 'validation_error',
   413: 'payload_too_large',
   503: 'service_busy',
+  429: 'rate_limited',
   404: 'not_found',
   405: 'method_not_allowed',
 }
@@ -38,6 +40,8 @@ function readRetryAfter(headers) {
   return /^\d+$/.test(String(raw ?? '').trim()) ? Number(raw) : null
 }
 
+const hasRetryAfter = (status) => status === 503 || status === 429
+
 function fromBody(body, status, headers) {
   const e = body?.error
   if (!e || typeof e !== 'object' || !isString(e.code) || e.code === '') return null
@@ -49,7 +53,7 @@ function fromBody(body, status, headers) {
     message,
     details,
     request_id: isString(e.request_id) ? e.request_id : null,
-    retryAfterSeconds: status === 503 ? readRetryAfter(headers) : undefined,
+    retryAfterSeconds: hasRetryAfter(status) ? readRetryAfter(headers) : undefined,
   })
 }
 
@@ -68,7 +72,7 @@ export function normaliseError(err) {
     if (fromServer) return fromServer
     const code = STATUS_CODES[res.status] ?? 'internal_error'
     return new ApiError(code, {
-      retryAfterSeconds: code === 'service_busy' ? readRetryAfter(res.headers) : undefined,
+      retryAfterSeconds: hasRetryAfter(res.status) ? readRetryAfter(res.headers) : undefined,
     })
   }
 

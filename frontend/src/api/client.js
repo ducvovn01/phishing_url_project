@@ -49,6 +49,8 @@ export function isAnalysisResponse(data) {
     Array.isArray(data.signals) &&
     data.signals.length <= MAX_SIGNALS &&
     data.signals.every(isSignal) &&
+    // Signal ids are React keys in AnalysisPanel, so they must be unique.
+    new Set(data.signals.map((s) => s.id)).size === data.signals.length &&
     isString(data.model?.name) &&
     isString(data.model?.version)
   )

@@ -79,7 +79,7 @@ These need a real browser. Fill in the rows; do not copy numbers from elsewhere.
 
 ### Lighthouse
 
-Run on a production build (`npm run build`, then `npm run preview`).
+Run on a production build (`npm run build`, then `npm run preview`). Stop the dev server first: both use port 5173, and `npm run preview` will not start while the port is taken.
 
 | Page | Device | Accessibility | Best practices | Performance | Date | Browser and version |
 | --- | --- | --- | --- | --- | --- | --- |

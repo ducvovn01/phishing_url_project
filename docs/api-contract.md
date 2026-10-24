@@ -1,6 +1,6 @@
 # API contract (v1)
 
-Status: v1, implemented by the backend in PR #2. Section 5 also describes one behaviour that is agreed but not built yet (`429 rate_limited`); it is marked there. Any change to this file goes through a pull request, so both sides see it.
+Status: v1, implemented by the backend in PR #2. Section 5 also describes one behaviour that is agreed but not built in the backend yet (`429 rate_limited`); it is marked there. The frontend already handles it. Any change to this file goes through a pull request, so both sides see it.
 
 This file is the single source of truth for what the frontend sends and what the backend returns. The Pydantic models and the mock data used by the frontend must both match it.
 
@@ -274,7 +274,7 @@ Every error from every endpoint uses this one shape, including unexpected ones. 
 | Unknown path | 404 | `not_found` | |
 | Wrong HTTP method for the path | 405 | `method_not_allowed` | Includes an `Allow` header. |
 | Model call fails or anything unexpected | 500 | `internal_error` | Generic message only. |
-| Too many requests from one client (planned, not built yet) | 429 | `rate_limited` | Must include `Retry-After` in seconds. See below. |
+| Too many requests from one client (planned in the backend; handled by the frontend) | 429 | `rate_limited` | Must include `Retry-After` in seconds. See below. |
 
 Example (busy):
 
@@ -291,13 +291,13 @@ Example (busy):
 
 ### 5.1 Planned: per-client rate limit (`429 rate_limited`)
 
-Status: agreed as the target, not implemented in PR #2. Until it ships, the backend never returns 429 and the frontend code for it is not exercised by the real server.
+Status: agreed as the target, not implemented in PR #2. Until it ships, the backend never returns 429 and the frontend code for it is not exercised by the real server. The frontend handles it already, and the mock (`ratelimit.mock`) simulates it.
 
 - A limiter per client returns `429` with `code: "rate_limited"`, a fixed safe message such as "Too many requests. Please wait a moment and try again.", and a `Retry-After` header in whole seconds.
 - The client is the socket address of the connection, unless a trusted proxy is explicitly configured. The limiter's store of clients must be bounded, so new clients cannot exhaust it.
 - The limit (requests per window) is set in backend configuration. The chosen default is recorded here once the backend sets it.
 - The existing 503 concurrency cap stays as a second layer: 429 means "this client asked too often", 503 means "the service is busy for everyone".
-- The frontend treats `rate_limited` like `service_busy`: it shows the server message and "Please wait about N seconds" from `Retry-After`.
+- The frontend maps any `429` to `rate_limited`, also when the body is missing or not in the error shape (then it uses the default message above). It shows the title "Too many requests", the message, and "Please wait about N seconds, then try again." from `Retry-After`, the same wait line as `service_busy`. A missing or unreadable `Retry-After` (not whole seconds) shows no wait line.
 
 ## 6. Rules for the frontend
 
@@ -307,8 +307,8 @@ Status: agreed as the target, not implemented in PR #2. Until it ships, the back
 4. If a request fails with no response at all (network error, timeout), show the same "backend unavailable" state.
 5. The session comparison charts keep responses in browser memory only. Nothing is saved, so it resets on refresh.
 6. Never display a confidence that rounds to 100%. A value of 99.5% or more reads "Over 99%". `trust_score` is a separate integer and is shown as is.
-7. For `503` and `429`, read `Retry-After` (whole seconds) and show the wait. The wording is singular for 1 second.
-8. The form checks the same rules as section 3.1 (scheme, hidden characters, length) so the user gets the answer without a request. The backend stays the authority.
+7. For `503` and `429`, read `Retry-After` (whole seconds) and show the wait. The wording is singular for 1 second. A missing or unreadable header shows no wait.
+8. The form checks the same rules as section 3.1 (scheme, hidden characters, length) so the user gets the answer without a request. The backend stays the authority. The form also asks for a host with a "." in it, a bracketed IPv6 literal (`[2001:db8::1]`) or `localhost` (any case), each with an optional port. This host check is a frontend usability check only; the backend does not apply it.
 
 ## 7. Decisions (open questions from the draft, now settled)
 
@@ -325,3 +325,4 @@ Status: agreed as the target, not implemented in PR #2. Until it ships, the back
 |---|---|---|
 | 2026-10-16 | First draft | |
 | 2026-10-23 | Updated to the implemented v1 (PR #2): scheme and character rules, real example, null offsets, rule list, error details, `Retry-After`, security headers; added the planned `429 rate_limited`; settled the open questions; added frontend rules 6 to 8 | Vinh |
+| 2026-10-24 | Frontend now handles `429 rate_limited` (section 5.1, rule 7); the form accepts bracketed IPv6 literals and `localhost` (rule 8) | Vinh |

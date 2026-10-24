@@ -137,6 +137,7 @@ function buildResponse(url) {
 // in the host, so a bare "mock-busy" never gets past the form.
 const SPECIAL_INPUTS = [
   { triggers: ['mock-busy', 'busy.mock'], error: () => new ApiError('service_busy', { request_id: 'mock', retryAfterSeconds: 5 }) },
+  { triggers: ['mock-ratelimit', 'ratelimit.mock'], error: () => new ApiError('rate_limited', { request_id: 'mock', retryAfterSeconds: 10 }) },
   { triggers: ['mock-error', 'error.mock'], error: () => new ApiError('internal_error', { request_id: 'mock' }) },
   { triggers: ['mock-offline', 'offline.mock'], error: () => new ApiError('backend_unavailable') },
   {

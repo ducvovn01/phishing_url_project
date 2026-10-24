@@ -49,7 +49,7 @@ describe('UrlForm', () => {
 
   test('the error clears while typing after a failed submit', async () => {
     const { user, field } = setup()
-    await user.type(field, 'localhost{Enter}')
+    await user.type(field, 'example{Enter}')
     expect(field).toHaveAttribute('aria-invalid', 'true')
     await user.type(field, '.com')
     expect(field).toHaveAccessibleDescription(HELPER)

@@ -55,6 +55,7 @@ describe('normaliseError', () => {
     [413, 'payload_too_large'],
     [404, 'not_found'],
     [405, 'method_not_allowed'],
+    [429, 'rate_limited'],
     [500, 'internal_error'],
     [418, 'internal_error'],
   ])('status %i without a valid body gives %s', (status, code) => {
@@ -73,6 +74,33 @@ describe('normaliseError', () => {
 
   test('503 with an unreadable Retry-After gives null', () => {
     expect(normaliseError(axiosError(res(503, null, { 'retry-after': 'soon' }))).retryAfterSeconds).toBeNull()
+  })
+
+  test('429 with a valid body gives rate_limited and reads Retry-After', () => {
+    const body = { error: { code: 'rate_limited', message: 'Too many requests. Please wait a moment and try again.', details: [], request_id: 'b7d2e019' } }
+    const e = normaliseError(axiosError(res(429, body, { 'retry-after': '10' })))
+    expectShape(e)
+    expect(e).toMatchObject({ code: 'rate_limited', message: DEFAULT_MESSAGES.rate_limited, request_id: 'b7d2e019', retryAfterSeconds: 10 })
+  })
+
+  test('429 with no body is rate_limited, not internal_error', () => {
+    const e = normaliseError(axiosError(res(429, '', { 'retry-after': '10' })))
+    expect(e).toMatchObject({ code: 'rate_limited', message: DEFAULT_MESSAGES.rate_limited, request_id: null, retryAfterSeconds: 10 })
+  })
+
+  test.each([
+    [503, '1', 1],
+    [503, '10', 10],
+    [429, '1', 1],
+    [429, '10', 10],
+    [429, 'soon', null],
+    [429, '1.5', null],
+    [429, undefined, null],
+  ])('status %i with Retry-After %j gives retryAfterSeconds %j, with and without a body', (status, header, seconds) => {
+    const headers = header === undefined ? {} : { 'retry-after': header }
+    const body = { error: { code: status === 429 ? 'rate_limited' : 'service_busy', message: 'm', details: [], request_id: 'a' } }
+    expect(normaliseError(axiosError(res(status, body, headers))).retryAfterSeconds).toBe(seconds)
+    expect(normaliseError(axiosError(res(status, null, headers))).retryAfterSeconds).toBe(seconds)
   })
 
   test('network error with no response is backend_unavailable', () => {
