@@ -270,11 +270,11 @@ Every error from every endpoint uses this one shape, including unexpected ones. 
 |---|---|---|---|
 | Missing, empty, wrong-type or too-long URL, forbidden characters or scheme, extra fields, malformed JSON, wrong `Content-Type` | 422 | `validation_error` | Replaces FastAPI's default 422 body. Message is "That doesn't look like a valid URL." when the problem is the URL, otherwise "The request body must be a JSON object with a single \"url\" field." |
 | Request body over 8192 bytes | 413 | `payload_too_large` | Checked before the body is parsed. |
-| Server busy (concurrency cap reached) | 503 | `service_busy` | `Retry-After: 1` (seconds). |
+| Server busy (concurrency cap reached) | 503 | `service_busy` | `Retry-After: 1`, a whole number of seconds. The frontend ignores any other form (such as an HTTP date) and then shows no wait line. |
 | Unknown path | 404 | `not_found` | |
 | Wrong HTTP method for the path | 405 | `method_not_allowed` | Includes an `Allow` header. |
 | Model call fails or anything unexpected | 500 | `internal_error` | Generic message only. |
-| Too many requests from one client (planned in the backend; handled by the frontend) | 429 | `rate_limited` | Must include `Retry-After` in seconds. See below. |
+| Too many requests from one client (planned in the backend; handled by the frontend) | 429 | `rate_limited` | Must include `Retry-After` as a whole number of seconds. The frontend ignores any other form (such as an HTTP date) and then shows no wait line. See below. |
 
 Example (busy):
 
@@ -307,7 +307,7 @@ Status: agreed as the target, not implemented in PR #2. Until it ships, the back
 4. If a request fails with no response at all (network error, timeout), show the same "backend unavailable" state.
 5. The session comparison charts keep responses in browser memory only. Nothing is saved, so it resets on refresh.
 6. Never display a confidence that rounds to 100%. A value of 99.5% or more reads "Over 99%". `trust_score` is a separate integer and is shown as is.
-7. For `503` and `429`, read `Retry-After` (whole seconds) and show the wait. The wording is singular for 1 second. A missing or unreadable header shows no wait.
+7. For `503` and `429`, read `Retry-After` as a whole number of seconds and show the wait. The wording is singular for 1 second. Any other form (such as an HTTP date), or a missing header, is ignored and no wait line is shown.
 8. The form checks the same rules as section 3.1 (scheme, hidden characters, length) so the user gets the answer without a request. The backend stays the authority. The form also asks for a host with a "." in it, a bracketed IPv6 literal (`[2001:db8::1]`) or `localhost` (any case), each with an optional port. This host check is a frontend usability check only; the backend does not apply it.
 
 ## 7. Decisions (open questions from the draft, now settled)
@@ -325,4 +325,4 @@ Status: agreed as the target, not implemented in PR #2. Until it ships, the back
 |---|---|---|
 | 2026-10-16 | First draft | |
 | 2026-10-23 | Updated to the implemented v1 (PR #2): scheme and character rules, real example, null offsets, rule list, error details, `Retry-After`, security headers; added the planned `429 rate_limited`; settled the open questions; added frontend rules 6 to 8 | Vinh |
-| 2026-10-24 | Frontend now handles `429 rate_limited` (section 5.1, rule 7); the form accepts bracketed IPv6 literals and `localhost` (rule 8) | Vinh |
+| 2026-10-24 | Frontend now handles `429 rate_limited` (section 5.1, rule 7); the form accepts bracketed IPv6 literals and `localhost` (rule 8); `Retry-After` for 503 and 429 is a whole number of seconds and the frontend ignores any other form (such as an HTTP date), showing no wait line; the frontend default busy message now matches the server message | Vinh |

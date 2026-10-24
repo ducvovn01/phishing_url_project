@@ -85,7 +85,7 @@ describe('analyseUrl', () => {
   })
 
   test('503 with Retry-After gives service_busy and retryAfterSeconds', async () => {
-    reply(503, { error: { code: 'service_busy', message: 'The service is busy. Please try again in a few seconds.', details: [], request_id: 'c41b7e' } }, { 'retry-after': '5' })
+    reply(503, { error: { code: 'service_busy', message: 'The service is busy. Please try again in a moment.', details: [], request_id: 'c41b7e' } }, { 'retry-after': '5' })
     await expect(analyseUrl('a.com')).rejects.toMatchObject({ code: 'service_busy', retryAfterSeconds: 5, request_id: 'c41b7e' })
   })
 

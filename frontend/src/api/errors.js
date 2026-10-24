@@ -3,7 +3,7 @@ const MAX_MESSAGE_LENGTH = 300
 export const DEFAULT_MESSAGES = {
   validation_error: "That doesn't look like a valid URL.",
   payload_too_large: 'That request is too large. Try a shorter URL.',
-  service_busy: 'The service is busy. Please try again in a few seconds.',
+  service_busy: 'The service is busy. Please try again in a moment.',
   rate_limited: 'Too many requests. Please wait a moment and try again.',
   not_found: 'That address was not found on the server.',
   method_not_allowed: 'The server did not accept that request.',
