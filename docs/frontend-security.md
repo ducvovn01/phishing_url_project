@@ -58,3 +58,15 @@ grep -rn "window.location" src                                     # expect 1: t
 grep -rn "localStorage\|sessionStorage\|document.cookie\|indexedDB\|caches" src   # expect none
 grep -rn "href=" src --include=*.jsx                               # expect the skip link only (tests excluded)
 ```
+
+## 5. How this fits the marked defences
+
+The README names two defences from section 2.7 of the brief and one attack from section 2.8. All of them are enforced in the backend, because front-end checks are for usability and back-end checks are for security. This section says what the frontend does for each, so it is clear what is and is not a defence.
+
+| Marked item | Enforced in | What the frontend does | What the frontend does not do |
+|---|---|---|---|
+| Denial of service (2.7, Advanced) | Backend: 8 KB body limit, 2048 code point cap, concurrency cap (503), per-client limiter (429) as a second layer | Caps the form at 2048 code points, disables Submit while a request is running, stops waiting after 30 seconds, and shows the wait from `Retry-After` for 503 and 429. | None of this stops an attacker, who can call the API directly with curl. |
+| Misconfiguration (2.7, Intermediate) | Backend headers, CORS pinned to `http://localhost:5173`, secrets in env variables; dependency and ZAP scans | Pins every dependency to an exact version, commits the lockfile, loads nothing from a CDN, and keeps secrets out of the bundle (`VITE_` variables are public). `npm audit` reports 0 vulnerabilities. | The Vite dev server sets no CSP or other security headers (see section 3). Any ZAP finding about the frontend page is fixed or justified in the README. |
+| Detection evasion (2.8) | Backend: input normalisation before the model | Shows the URL exactly as submitted, cut by code point and never cleaned or normalised, so the user sees what the model was sent. The form already rejects hidden characters (zero-width and other format characters, control characters, spaces). | Look-alike letters, such as Cyrillic letters in place of Latin ones, are ordinary letters. The frontend lets them through on purpose, and the backend defence is what handles them. |
+
+Risks from the brief that do not apply to the frontend: server-side request forgery (it never fetches or opens the submitted URL), command injection (no shell), SQL injection (no database), file upload (no files are accepted), broken access control (no accounts), and unsafe model loading (no model on the client).
