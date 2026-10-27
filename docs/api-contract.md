@@ -1,6 +1,6 @@
 # API contract (v1)
 
-Status: v1, implemented by the backend in PR #2. Section 5 also describes one behaviour that is agreed but not built in the backend yet (`429 rate_limited`); it is marked there. The frontend already handles it. Any change to this file goes through a pull request, so both sides see it.
+Status: v1, implemented by the backend in PR #2, plus the per-client `429 rate_limited` (section 5.1), now implemented in the backend as well. The frontend already handles it. Any change to this file goes through a pull request, so both sides see it.
 
 This file is the single source of truth for what the frontend sends and what the backend returns. The Pydantic models and the mock data used by the frontend must both match it.
 
@@ -25,6 +25,7 @@ These numbers are used in three places: the backend validation, the frontend for
 | Request body size | 8192 bytes maximum, enforced by the backend before parsing (also for chunked uploads with no `Content-Length`) |
 | Signals returned | at most 10 in total (n-gram and rule signals together) |
 | Concurrent analyses | 4 per worker process by default (`ANALYZE_MAX_CONCURRENCY`, 1 to 64). Over the cap a request is refused at once with 503, not queued. |
+| Requests per client | 30 per 60 seconds on `/analyze` by default (`RATE_LIMIT_REQUESTS`, `RATE_LIMIT_WINDOW_SECONDS`), per worker process. Over it a request gets 429 (section 5.1). |
 
 ## 3. `POST /analyze`
 
@@ -274,7 +275,7 @@ Every error from every endpoint uses this one shape, including unexpected ones. 
 | Unknown path | 404 | `not_found` | |
 | Wrong HTTP method for the path | 405 | `method_not_allowed` | Includes an `Allow` header. |
 | Model call fails or anything unexpected | 500 | `internal_error` | Generic message only. |
-| Too many requests from one client (planned in the backend; handled by the frontend) | 429 | `rate_limited` | Must include `Retry-After` as a whole number of seconds. The frontend ignores any other form (such as an HTTP date) and then shows no wait line. See below. |
+| Too many requests from one client | 429 | `rate_limited` | `Retry-After` is always a whole number of seconds, at least 1. The frontend ignores any other form (such as an HTTP date) and then shows no wait line. See below. |
 
 Example (busy):
 
@@ -289,14 +290,15 @@ Example (busy):
 }
 ```
 
-### 5.1 Planned: per-client rate limit (`429 rate_limited`)
+### 5.1 Per-client rate limit (`429 rate_limited`)
 
-Status: agreed as the target, not implemented in PR #2. Until it ships, the backend never returns 429 and the frontend code for it is not exercised by the real server. The frontend handles it already, and the mock (`ratelimit.mock`) simulates it.
+Status: implemented in the backend (`backend/app/rate_limit.py`). The frontend handled it before the backend did, and the mock (`ratelimit.mock`) still simulates it.
 
-- A limiter per client returns `429` with `code: "rate_limited"`, a fixed safe message such as "Too many requests. Please wait a moment and try again.", and a `Retry-After` header in whole seconds.
-- The client is the socket address of the connection, unless a trusted proxy is explicitly configured. The limiter's store of clients must be bounded, so new clients cannot exhaust it.
-- The limit (requests per window) is set in backend configuration. The chosen default is recorded here once the backend sets it.
-- The existing 503 concurrency cap stays as a second layer: 429 means "this client asked too often", 503 means "the service is busy for everyone".
+- A limiter per client returns `429` with `code: "rate_limited"`, the fixed message "Too many requests. Please wait a moment and try again.", empty `details`, and a `Retry-After` header in whole seconds, at least 1. It is rounded up, so a client that waits that long always gets in.
+- Only `/analyze` is limited. `/health` is not. Every request to `/analyze` counts, whatever its body: the check runs before the body is read, so an over-limit client gets 429 even for a body that would otherwise be 413 or 422.
+- The client is the socket address of the connection (not the port). No trusted proxy is configured, and no forwarding header (`X-Forwarded-For`, `Forwarded`, `X-Real-IP`) is read. The server must run with uvicorn's `--no-proxy-headers` (see `backend/README.md`). The limiter's store holds at most 10,000 clients and evicts the least recently seen one, so new clients cannot exhaust memory.
+- The limit is set in backend configuration. **Default: 30 requests per 60 seconds per client** (`RATE_LIMIT_REQUESTS=30`, `RATE_LIMIT_WINDOW_SECONDS=60`). It is a token bucket: a client may send 30 at once, then gets one more every 2 seconds. With the default, `Retry-After` on a 429 is therefore 1 or 2. `RATE_LIMIT_ENABLED=false` turns the limit off for the before/after demo only.
+- The existing 503 concurrency cap stays as a second layer: 429 means "this client asked too often", 503 means "the service is busy for everyone". The 429 check comes first, and a request refused with 503 still counts against its client.
 - The frontend maps any `429` to `rate_limited`, also when the body is missing or not in the error shape (then it uses the default message above). It shows the title "Too many requests", the message, and "Please wait about N seconds, then try again." from `Retry-After`, the same wait line as `service_busy`. A missing or unreadable `Retry-After` (not whole seconds) shows no wait line.
 
 ## 6. Rules for the frontend
@@ -326,3 +328,4 @@ Status: agreed as the target, not implemented in PR #2. Until it ships, the back
 | 2026-10-16 | First draft | |
 | 2026-10-23 | Updated to the implemented v1 (PR #2): scheme and character rules, real example, null offsets, rule list, error details, `Retry-After`, security headers; added the planned `429 rate_limited`; settled the open questions; added frontend rules 6 to 8 | Vinh |
 | 2026-10-24 | Frontend now handles `429 rate_limited` (section 5.1, rule 7); the form accepts bracketed IPv6 literals and `localhost` (rule 8); `Retry-After` for 503 and 429 is a whole number of seconds and the frontend ignores any other form (such as an HTTP date), showing no wait line; the frontend default busy message now matches the server message | Vinh |
+| 2026-10-27 | Backend implements `429 rate_limited` (section 5.1): token bucket per socket address on `/analyze`, default 30 requests per 60 seconds, bounded store, `Retry-After` at least 1, demo-only off switch; new shared limit in section 2 | |

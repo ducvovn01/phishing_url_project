@@ -33,7 +33,7 @@ Scope: the React client only. It sends one URL string to the backend and shows t
 ## 3. Not covered, and why
 
 - **Security headers for the page itself.** The Vite dev server does not set a Content-Security-Policy, `X-Content-Type-Options` or frame protection for the frontend. In this project the frontend runs only as a local dev server or as a static build served on localhost, so we do not configure a production host. If it were deployed, the host should set a strict CSP (`default-src 'self'`, `connect-src` limited to the API origin) and `frame-ancestors 'none'`. The React code has no inline script that a strict CSP would break, but this has not been tested with one.
-- **Rate limiting and denial of service.** Handled by the backend (body size limit, concurrency cap, and the planned per-client 429). The frontend only reacts: a `503` becomes `service_busy` and a `429` becomes `rate_limited`, with or without a valid error body, and both show the wait from `Retry-After` when it is a whole number of seconds above 0.
+- **Rate limiting and denial of service.** Handled by the backend (body size limit, concurrency cap, and the per-client 429, by default 30 requests per 60 seconds on `/analyze`). The frontend only reacts: a `503` becomes `service_busy` and a `429` becomes `rate_limited`, with or without a valid error body, and both show the wait from `Retry-After` when it is a whole number of seconds above 0.
 - **Authentication and authorisation.** There are no accounts, so none are implemented.
 - **Browser extensions and a compromised machine.** Out of scope.
 - **Accuracy of the model.** A wrong verdict is a model limitation, not a frontend vulnerability. The page labels the result as an estimate from the text of the link only.
