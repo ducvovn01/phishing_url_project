@@ -19,8 +19,8 @@ def service() -> ModelService:
 
 @pytest.fixture(scope="session")
 def client(service):
-    """TestClient over the real model."""
-    app = create_app(Settings(), load_model=lambda _: service)
+    """TestClient over the real model, rate limiter off (see make_client)."""
+    app = create_app(Settings(rate_limit_enabled=False), load_model=lambda _: service)
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
 
@@ -51,8 +51,13 @@ class FakeService:
 
 
 def make_client(fake=None, **settings) -> TestClient:
-    """TestClient over a FakeService; use as a context manager so startup runs."""
+    """TestClient over a FakeService; use as a context manager so startup runs.
+
+    The rate limiter is off unless a test turns it on: every TestClient request comes from
+    the same address, so shared clients would otherwise hit 429 depending on test order.
+    """
     fake = fake or FakeService()
+    settings = {"rate_limit_enabled": False, **settings}
     app = create_app(replace(Settings(), **settings), load_model=lambda _: fake)
     return TestClient(app, raise_server_exceptions=False)
 

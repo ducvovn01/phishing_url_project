@@ -3,7 +3,9 @@
 Only localhost targets are accepted, and the burst is a single, capped round of
 concurrent requests, so this cannot be pointed at someone else's service or turned into a
 flood. Standard library only. It does not replace the team's DoS write-up and scripts;
-it gives reproducible numbers for the two backend defences.
+it gives reproducible numbers for the two backend defences. With the per-client rate
+limit on, burst requests past the limit get 429, which is expected here too; for the
+rate limit itself see scripts/security/rate_limit_flood.py.
 
     # terminal 1 (from backend/)
     .venv/Scripts/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
@@ -117,7 +119,10 @@ def burst(host: str, port: int, n: int) -> dict:
         "retry_after_values_on_503": busy_retry_after,
         "all_503_have_retry_after": all(ra is not None for status, ra, _ in results
                                         if status == 503),
-        "unexpected_statuses": sorted(str(s) for s in statuses if s not in (200, 503)),
+        "retry_after_values_on_429": sorted({ra for status, ra, _ in results if status == 429}),
+        "all_429_have_retry_after": all(ra is not None for status, ra, _ in results
+                                        if status == 429),
+        "unexpected_statuses": sorted(str(s) for s in statuses if s not in (200, 429, 503)),
         "wall_seconds": round(elapsed, 4),
         "p50_ok_seconds": round(ok_latencies[len(ok_latencies) // 2], 4) if ok_latencies else None,
     }
@@ -150,7 +155,7 @@ def main() -> None:
         with open(args.json_out, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2)
     ok = (all(r["ok"] for r in report["body_limit"]) and not b["unexpected_statuses"]
-          and b["all_503_have_retry_after"])
+          and b["all_503_have_retry_after"] and b["all_429_have_retry_after"])
     sys.exit(0 if ok else 1)
 
 

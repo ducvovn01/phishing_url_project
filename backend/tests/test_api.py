@@ -53,6 +53,17 @@ def test_analyze_with_real_model(client, service):
 
 
 @pytest.mark.model
+@pytest.mark.parametrize("url", ["[::1]", "http://[2001:db8::1]:8080/a", "localhost",
+                                 "LOCALHOST:8000", "http://[::1:8080/a", "[", "http://[]/"])
+def test_real_model_analyses_ipv6_and_localhost_hosts(client, url):
+    # The last three are malformed IPv6 that the form refuses but a script can send. They must
+    # still be analysed, not crash: nothing on the model path parses the host.
+    response = client.post("/analyze", json={"url": url})
+    assert response.status_code == 200
+    assert response.json()["submitted_url"] == url
+
+
+@pytest.mark.model
 def test_docs_example_is_real_model_output(client):
     response = client.post("/analyze", json={"url": ANALYZE_EXAMPLE["submitted_url"]})
     assert response.json() == ANALYZE_EXAMPLE
@@ -107,9 +118,11 @@ def test_docs_and_openapi(fake_client):
     spec = fake_client.get("/openapi.json").json()
     analyze = spec["paths"]["/analyze"]["post"]
     assert analyze["description"] and analyze["summary"]
-    assert set(analyze["responses"]) >= {"200", "404", "405", "413", "422", "500", "503"}
-    assert "Retry-After" in analyze["responses"]["503"]["headers"]
-    for status in ("413", "422", "500", "503"):
+    assert set(analyze["responses"]) >= {"200", "404", "405", "413", "422", "429", "500",
+                                         "503"}
+    for status in ("429", "503"):
+        assert "Retry-After" in analyze["responses"][status]["headers"]
+    for status in ("413", "422", "429", "500", "503"):
         example = analyze["responses"][status]["content"]["application/json"]["example"]
         assert set(example["error"]) == {"code", "message", "details", "request_id"}
     schemas = spec["components"]["schemas"]

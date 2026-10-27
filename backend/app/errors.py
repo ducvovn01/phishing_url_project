@@ -16,6 +16,7 @@ logger = logging.getLogger("phishing_api")
 INVALID_URL = "That doesn't look like a valid URL."
 INVALID_BODY = "The request body must be a JSON object with a single \"url\" field."
 INTERNAL = "Something went wrong while analysing the URL. Please try again."
+RATE_LIMITED = "Too many requests. Please wait a moment and try again."
 MAX_DETAILS = 10
 MAX_FIELD_LENGTH = 64
 

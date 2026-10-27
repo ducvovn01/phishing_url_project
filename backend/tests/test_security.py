@@ -1,4 +1,5 @@
-"""Body limit, overload guard, CORS, config hygiene, no outbound calls, sanitized logs."""
+"""Body limit, rate limit, overload guard, CORS, config hygiene, no outbound calls,
+sanitized logs."""
 import asyncio
 import logging
 import socket
@@ -6,6 +7,7 @@ import subprocess
 import threading
 import time
 import urllib.request
+from contextlib import contextmanager
 from dataclasses import replace
 
 import httpx2 as httpx
@@ -13,7 +15,9 @@ import pytest
 import uvicorn
 
 from app.config import ConfigError, Settings, load_settings
+from app.errors import RATE_LIMITED
 from app.main import create_app
+from app.rate_limit import RateLimiter
 from conftest import FakeService, assert_error, make_client
 
 ALLOWED_ORIGIN = "http://localhost:5173"
@@ -96,10 +100,11 @@ def chunked(body: bytes, size: int = 1000) -> list[bytes]:
     return parts + [b"0\r\n\r\n"]
 
 
-def test_limit_on_real_uvicorn_server():
-    """End to end over a real socket: chunked bodies and a huge declared Content-Length."""
-    app = create_app(Settings(), load_model=lambda _: FakeService())
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning"))
+@contextmanager
+def running_server(app, **config):
+    """Serve `app` with a real uvicorn on a free localhost port; yields the port."""
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning",
+                                           **config))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
     try:
@@ -107,7 +112,16 @@ def test_limit_on_real_uvicorn_server():
         while not server.started:
             assert time.monotonic() < deadline, "uvicorn did not start"
             time.sleep(0.05)
-        port = server.servers[0].sockets[0].getsockname()[1]
+        yield server.servers[0].sockets[0].getsockname()[1]
+    finally:
+        server.should_exit = True
+        thread.join(timeout=10)
+
+
+def test_limit_on_real_uvicorn_server():
+    """End to end over a real socket: chunked bodies and a huge declared Content-Length."""
+    app = create_app(Settings(), load_model=lambda _: FakeService())
+    with running_server(app) as port:
         head = ("POST /analyze HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n"
                 "Content-Type: application/json\r\n")
 
@@ -120,9 +134,185 @@ def test_limit_on_real_uvicorn_server():
         declared = raw_request(port, head + "Content-Length: 100000000\r\n\r\n", [])
         assert declared.startswith(b"HTTP/1.1 413")
         assert time.monotonic() - started < 5  # refused without waiting for the body
-    finally:
-        server.should_exit = True
-        thread.join(timeout=10)
+
+
+# ---- per-client rate limit ---------------------------------------------------------------
+
+class FakeClock:
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def test_limiter_allows_a_burst_then_gives_whole_seconds_to_wait():
+    clock = FakeClock()
+    limiter = RateLimiter(4, 8, clock=clock)  # one request given back every 2 s
+    assert [limiter.check("a") for _ in range(4)] == [None] * 4
+    assert limiter.check("a") == 2
+    clock.now += 1.5
+    assert limiter.check("a") == 1  # 0.5 s left, rounded up
+    clock.now += 0.5
+    assert limiter.check("a") is None
+    assert limiter.check("a") == 2
+
+
+def test_limiter_refills_up_to_the_burst_only():
+    clock = FakeClock()
+    limiter = RateLimiter(4, 8, clock=clock)
+    for _ in range(4):
+        limiter.check("a")
+    clock.now += 3600
+    assert [limiter.check("a") for _ in range(5)] == [None] * 4 + [2]
+
+
+def test_limiter_keeps_clients_apart():
+    limiter = RateLimiter(1, 60, clock=FakeClock())
+    assert limiter.check("10.0.0.1") is None
+    assert limiter.check("10.0.0.1") == 60
+    assert limiter.check("10.0.0.2") is None
+
+
+def test_limiter_store_is_bounded_and_keeps_the_busy_client():
+    limiter = RateLimiter(2, 60, max_clients=3, clock=FakeClock())
+    limiter.check("flooder")
+    limiter.check("flooder")
+    for i in range(1000):  # new addresses churn the store...
+        limiter.check(f"10.0.{i // 256}.{i % 256}")
+        assert limiter.check("flooder") is not None  # ...but the busy client stays limited
+        assert len(limiter) <= 3
+
+
+def test_limiter_forgets_the_least_recently_seen_client_when_full():
+    limiter = RateLimiter(1, 60, max_clients=2, clock=FakeClock())
+    limiter.check("a")
+    limiter.check("b")
+    limiter.check("c")  # store full: a, idle longest, is dropped
+    assert len(limiter) == 2
+    assert limiter.check("a") is None  # the documented trade-off: a gets a fresh bucket
+    assert limiter.check("c") == 60
+
+
+def limited_client(fake=None, **settings):
+    return make_client(fake, **{"rate_limit_enabled": True, "rate_limit_requests": 3,
+                                **settings})
+
+
+def test_over_limit_gets_429_rate_limited_with_retry_after():
+    fake = FakeService()
+    with limited_client(fake) as c:
+        statuses = [c.post("/analyze", json={"url": "a.com"}).status_code for _ in range(3)]
+        response = c.post("/analyze", json={"url": "a.com"}, headers={"Origin": ALLOWED_ORIGIN})
+    assert statuses == [200, 200, 200]
+    error = assert_error(response, 429, "rate_limited")
+    assert error["message"] == RATE_LIMITED and error["details"] == []
+    retry_after = response.headers["retry-after"]
+    assert retry_after.isdigit() and 1 <= int(retry_after) <= 20  # 3 per 60 s: 20 s a request
+    # The browser can only read the 429 and its Retry-After through CORS.
+    assert response.headers["access-control-allow-origin"] == ALLOWED_ORIGIN
+    assert "retry-after" in response.headers["access-control-expose-headers"].lower()
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert fake.calls == 3  # the limited request never reached the model
+
+
+def test_every_request_to_analyze_counts_whatever_its_body():
+    fake = FakeService()
+    json_type = {"Content-Type": "application/json"}
+    with limited_client(fake) as c:
+        assert_error(c.post("/analyze", content=b"{not json", headers=json_type),
+                     422, "validation_error")
+        assert_error(c.post("/analyze", content=b"url=a.com",
+                            headers={"Content-Type": "text/plain"}), 422, "validation_error")
+        assert_error(c.post("/analyze", content=body_of_size(9000), headers=json_type),
+                     413, "payload_too_large")
+        assert_error(c.post("/analyze", json={"url": "a.com"}), 429, "rate_limited")
+        # A limited client is refused before its body is read, so this is 429, not 413.
+        assert_error(c.post("/analyze", content=body_of_size(9000), headers=json_type),
+                     429, "rate_limited")
+        assert all(c.get("/health").status_code == 200 for _ in range(10))  # /analyze only
+    assert fake.calls == 0
+
+
+@pytest.mark.anyio
+async def test_limit_is_per_socket_address_and_ignores_forwarded_headers():
+    app = create_app(replace(Settings(), rate_limit_requests=2),
+                     load_model=lambda _: FakeService())
+
+    def client_from(host: str, port: int):
+        transport = httpx.ASGITransport(app=app, client=(host, port))
+        return httpx.AsyncClient(transport=transport, base_url="http://test")
+
+    spoof = {"X-Forwarded-For": "192.0.2.1", "X-Real-IP": "192.0.2.1",
+             "Forwarded": "for=192.0.2.1"}
+    async with app.router.lifespan_context(app):
+        async with (client_from("203.0.113.7", 50000) as a,
+                    client_from("203.0.113.7", 50001) as a_new_port,
+                    client_from("198.51.100.9", 50000) as b):
+            for _ in range(2):
+                assert (await a.post("/analyze", json={"url": "a.com"})).status_code == 200
+            assert_error(await a.post("/analyze", json={"url": "a.com"}, headers=spoof),
+                         429, "rate_limited")
+            assert_error(await a_new_port.post("/analyze", json={"url": "a.com"}),
+                         429, "rate_limited")
+            assert (await b.post("/analyze", json={"url": "a.com"})).status_code == 200
+
+
+@pytest.mark.parametrize("proxy_headers, expected", [
+    (False, [200, 200, 429, 429]),  # as the README runs it: the socket address is the key
+    (True, [200, 200, 200, 200]),   # uvicorn's default trusts X-Forwarded-For from 127.0.0.1
+])
+def test_real_server_needs_no_proxy_headers(proxy_headers, expected):
+    """Why the README passes --no-proxy-headers: without it, a local client resets its
+    limit by sending a new X-Forwarded-For each time."""
+    app = create_app(replace(Settings(), rate_limit_requests=2),
+                     load_model=lambda _: FakeService())
+    body = b'{"url": "a.com"}'
+    replies = []
+    with running_server(app, proxy_headers=proxy_headers) as port:
+        for i in range(4):
+            head = ("POST /analyze HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n"
+                    f"Content-Type: application/json\r\nContent-Length: {len(body)}\r\n"
+                    f"X-Forwarded-For: 192.0.2.{i}\r\n\r\n")
+            replies.append(raw_request(port, head, [body]))
+    assert [int(r.split(b" ", 2)[1]) for r in replies] == expected
+    for reply in replies:
+        if reply.startswith(b"HTTP/1.1 429"):
+            assert b"rate_limited" in reply and b"\r\nretry-after: " in reply.lower()
+
+
+def test_rate_limit_can_be_switched_off_for_the_demo():
+    with make_client(rate_limit_enabled=False, rate_limit_requests=1) as c:
+        assert c.app.state.rate_limiter is None
+        assert [c.post("/analyze", json={"url": "a.com"}).status_code
+                for _ in range(50)] == [200] * 50
+
+
+@pytest.mark.anyio
+async def test_429_is_checked_before_the_503_cap():
+    """Layer 1 is per client (429), layer 2 is for everyone (503). A request the cap turns
+    away still counted against its client."""
+    gate = threading.Event()
+    fake = FakeService(gate=gate)
+    app = create_app(replace(Settings(), rate_limit_requests=2, max_concurrency=1),
+                     load_model=lambda _: fake)
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+            tasks = [asyncio.create_task(c.post("/analyze", json={"url": f"a{i}.com"}))
+                     for i in range(3)]
+            for _ in range(500):
+                if sum(t.done() for t in tasks) == 2:
+                    break
+                await asyncio.sleep(0.01)
+            gate.set()
+            responses = await asyncio.gather(*tasks)
+    by_status = {r.status_code: r for r in responses}
+    assert sorted(by_status) == [200, 429, 503]
+    assert_error(by_status[429], 429, "rate_limited")
+    assert_error(by_status[503], 503, "service_busy")
+    assert by_status[503].headers["retry-after"] == "1"
+    assert fake.calls == 1
 
 
 # ---- overload guard --------------------------------------------------------------------
@@ -216,6 +406,13 @@ def test_error_responses_carry_cors_for_the_frontend(fake_client):
     {"ANALYZE_MAX_CONCURRENCY": "abc"},
     {"ANALYZE_MAX_CONCURRENCY": "1000"},
     {"API_DOCS_ENABLED": "maybe"},
+    {"RATE_LIMIT_ENABLED": "off"},
+    {"RATE_LIMIT_REQUESTS": "0"},
+    {"RATE_LIMIT_REQUESTS": "many"},
+    {"RATE_LIMIT_REQUESTS": "10001"},
+    {"RATE_LIMIT_WINDOW_SECONDS": "0"},
+    {"RATE_LIMIT_WINDOW_SECONDS": "1.5"},
+    {"RATE_LIMIT_WINDOW_SECONDS": "3601"},
 ])
 def test_misconfiguration_is_refused(env):
     with pytest.raises(ConfigError):
@@ -224,10 +421,21 @@ def test_misconfiguration_is_refused(env):
 
 def test_valid_configuration():
     settings = load_settings({"CORS_ALLOW_ORIGINS": "http://localhost:5173, https://app.example.com",
-                              "ANALYZE_MAX_CONCURRENCY": "8", "API_DOCS_ENABLED": "false"})
+                              "ANALYZE_MAX_CONCURRENCY": "8", "API_DOCS_ENABLED": "false",
+                              "RATE_LIMIT_ENABLED": "false", "RATE_LIMIT_REQUESTS": "10",
+                              "RATE_LIMIT_WINDOW_SECONDS": "30"})
     assert settings.cors_origins == ("http://localhost:5173", "https://app.example.com")
     assert settings.max_concurrency == 8 and settings.docs_enabled is False
+    assert settings.rate_limit_enabled is False
+    assert (settings.rate_limit_requests, settings.rate_limit_window_seconds) == (10, 30)
     assert load_settings({}) == Settings()
+
+
+def test_rate_limit_default_matches_the_contract():
+    # Recorded in docs/api-contract.md section 5.1; change both together.
+    defaults = Settings()
+    assert defaults.rate_limit_enabled is True
+    assert (defaults.rate_limit_requests, defaults.rate_limit_window_seconds) == (30, 60)
 
 
 # ---- no outbound activity, sanitized logs ------------------------------------------------
@@ -275,3 +483,18 @@ def test_logs_never_contain_the_submitted_url():
     assert handler.lines
     assert not any(marker in line for line in handler.lines)
     assert any("(unmatched)" in line for line in handler.lines)
+
+
+def test_startup_log_says_whether_the_rate_limit_is_on():
+    handler = ListHandler()
+    logger = logging.getLogger("phishing_api")
+    logger.addHandler(handler)
+    try:
+        with make_client(rate_limit_enabled=True):
+            pass
+        with make_client(rate_limit_enabled=False):
+            pass
+    finally:
+        logger.removeHandler(handler)
+    assert any("rate limit on: 30 requests per 60 s" in line for line in handler.lines)
+    assert any("rate limit OFF" in line for line in handler.lines)

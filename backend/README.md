@@ -23,7 +23,7 @@ The API refuses to start with any other version.
 ## 2. Run
 
 ```bash
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-server-header --no-access-log
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers --no-server-header --no-access-log
 ```
 
 - Docs: <http://localhost:8000/docs>
@@ -39,10 +39,19 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-server-header --no-access
 strings. The app logs its own sanitized line per request instead (method, matched route,
 status, duration, request ID; never the submitted URL).
 
+`--no-proxy-headers` matters for the rate limit. By default uvicorn trusts
+`X-Forwarded-For` from `127.0.0.1` and `::1` and replaces the client address with it, so
+a local client could pick a new address on every request and never be limited
+(`test_real_server_needs_no_proxy_headers` shows both cases). There is no proxy in front
+of this service, so the socket address is the only client identity.
+
 | Variable | Default | Meaning |
 |---|---|---|
 | `CORS_ALLOW_ORIGINS` | `http://localhost:5173` | Comma-separated exact origins. `*`, paths and wildcards are refused at startup. |
 | `ANALYZE_MAX_CONCURRENCY` | `4` | In-flight `/analyze` calls per worker process (1-64). |
+| `RATE_LIMIT_REQUESTS` | `30` | Requests per client per window on `/analyze` (1-10000). |
+| `RATE_LIMIT_WINDOW_SECONDS` | `60` | The window, in whole seconds (1-3600). |
+| `RATE_LIMIT_ENABLED` | `true` | **Demo only.** `false` removes the per-client limit for the before/after recording; startup then logs a warning. Never set it in deployment. |
 | `API_DOCS_ENABLED` | `true` | Set `false` in deployment to remove `/docs` and `/openapi.json`. |
 | `MODEL_MANIFEST` | `backend/model_manifest.json` | Manifest naming the artefact and its expected SHA-256. |
 
@@ -114,6 +123,7 @@ Errors all use the same shape:
 |---|---|---|
 | 422 | `validation_error` | Bad/missing/too-long URL, extra fields, malformed JSON, non-JSON `Content-Type` |
 | 413 | `payload_too_large` | Body over 8192 bytes (counted while reading, chunked too) |
+| 429 | `rate_limited` | This client went over its limit on `/analyze`; `Retry-After` in whole seconds, at least 1 |
 | 503 | `service_busy` | Concurrency limit reached; `Retry-After: 1` |
 | 404 | `not_found` | Unknown path |
 | 405 | `method_not_allowed` | Wrong method (`Allow` header kept) |
@@ -184,7 +194,7 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
 | `test_model_parity.py` | probabilities and labels equal genuine `scripts/predict.py` on 218 URLs (`data/test_urls.csv` + edge cases, atol 1e-12); preprocessing; threshold boundary |
 | `test_api.py` | response shapes, uniform 404/405/500, request IDs, security headers, `/docs` content |
 | `test_validation.py` | URL policy and every 422 path |
-| `test_security.py` | 8192/8193-byte boundary with and without Content-Length (also over a real uvicorn socket), 503 + `Retry-After`, slot release, CORS, config refusal, no network/subprocess calls, no URLs in logs |
+| `test_security.py` | 8192/8193-byte boundary with and without Content-Length (also over a real uvicorn socket), 429 + `Retry-After` (token bucket, bounded store, every body counts, keyed on the socket address, `X-Forwarded-For` ignored, demo switch, 429 before 503), 503 + `Retry-After`, slot release, CORS, config refusal, no network/subprocess calls, no URLs in logs |
 | `test_signals.py` | exact attribution, ordering, Unicode offsets, brand mask mapping, rules |
 | `test_normalization.py` | the P2 defence |
 
@@ -193,9 +203,24 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
 - **Body limit:** `BodySizeLimitMiddleware` rejects a declared `Content-Length` over 8192
   at once. Otherwise it counts bytes while reading and stops at the first chunk past the
   limit, so at most 8192 bytes plus one chunk are ever buffered.
-- **Overload:** a non-blocking per-process cap (`ANALYZE_MAX_CONCURRENCY`). Excess
+- **Per-client rate limit (layer 1):** `app/rate_limit.py`, a token bucket per client on
+  `/analyze`. By default a client may send 30 at once and then gets one more every
+  2 seconds (30 per 60 s). Over that it gets `429 rate_limited` with `Retry-After`, the
+  whole seconds until its next request is allowed, rounded up so waiting that long always
+  works. Details:
+  - The check runs as middleware before the body is read. Every request counts, even a
+    malformed or oversized one, and a limited client costs no parsing or model time.
+  - The key is the socket address, without the port. No forwarding header is read, and
+    see `--no-proxy-headers` in section 2.
+  - The store holds at most 10,000 clients as an LRU. A client that keeps sending is
+    never the one evicted. A limit is only forgotten when more than 10,000 addresses
+    arrive within one window, and layer 2 still bounds that case.
+  - The limit is per worker process, like the concurrency cap.
+- **Overload (layer 2):** a non-blocking per-process cap (`ANALYZE_MAX_CONCURRENCY`). Excess
   requests get 503 at once instead of queueing, and a slot is freed only when the worker
-  thread has really finished. With N worker processes the total is N × limit.
+  thread has really finished. With N worker processes the total is N × limit. 429 means
+  "this client asked too often", 503 means "the service is busy for everyone". A request
+  turned away with 503 has still used one of its client's requests.
 - **Misconfiguration:**
   - exact CORS origin, no credentials, and `http://127.0.0.1:5173` is *not* allowed;
   - `nosniff`, `no-store`, `no-referrer` and CSP/`X-Frame-Options` on API responses;
@@ -208,9 +233,42 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
   python scripts/security_smoke.py --burst 40 --json-out evidence/security_smoke.json
   ```
 
-  `evidence/security_smoke.json` is one real run against the defended server: all 5 body
-  cases passed, and the burst of 40 got 31 × 200 and 9 × 503, each with `Retry-After: 1`.
-  It is not a before/after comparison.
+  `evidence/security_smoke.json` is one real run against the defended server, recorded
+  before the rate limit existed: all 5 body cases passed, and the burst of 40 got 31 × 200
+  and 9 × 503, each with `Retry-After: 1`. It is not a before/after comparison. With the
+  rate limit on, burst requests past the client's limit get 429, which the script also
+  accepts.
+- **Rate limit before/after** (localhost only, capped):
+
+  ```bash
+  # terminal 1, BEFORE: the demo switch turns the limiter off
+  #   PowerShell: $env:RATE_LIMIT_ENABLED="false"    bash: export RATE_LIMIT_ENABLED=false
+  uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers --no-access-log
+  # terminal 2
+  python scripts/security/rate_limit_flood.py --phase before
+  # terminal 1: stop, unset RATE_LIMIT_ENABLED (PowerShell: Remove-Item Env:RATE_LIMIT_ENABLED), start again
+  python scripts/security/rate_limit_flood.py --phase after
+  ```
+
+  Each phase sends, from one client, a burst of 20 concurrent requests, then 60 one after
+  another, then 5 with a new `X-Forwarded-For` each. The after phase finally sleeps the
+  last `Retry-After` and sends one more. Both phases go into
+  `evidence/rate_limit_before_after.json`, and once both exist the script prints them
+  side by side. It refuses to pass a before phase that saw a 429, or an after phase with
+  no 429, a malformed 429 or a spoofed address that got through.
+
+  `evidence/rate_limit_before_after.json` is one real run (2026-10-27, default settings
+  for the after phase):
+
+  | | before (limiter off) | after (limiter on) |
+  |---|---|---|
+  | burst of 20: 200 / 503 | 15 / 5 | 7 / 13 |
+  | flood of 60: 200 / 429 | 60 / 0 | 10 / 50 |
+  | accepted before the first 429 | – | 30 (burst 20 + flood 10) |
+  | `Retry-After` on 429 | – | 1, 2 |
+  | 5 spoofed `X-Forwarded-For` that got through | 5 (no limit) | 0 |
+  | after sleeping `Retry-After` | – | 200 |
+  | model runs / requests sent | 80 / 85 | 18 / 86 |
 - **Dependencies:** `pip-audit -r requirements.txt -r requirements-dev.txt` found no known
   vulnerabilities on 2026-10-17 (`evidence/pip_audit.txt`).
 - **Worst case per request:** a 2048-character URL takes about 30-70 ms on the test laptop,
