@@ -156,8 +156,9 @@ class ErrorDetail(BaseModel):
 
 
 class ErrorBody(BaseModel):
-    code: str = Field(description="validation_error, payload_too_large, service_busy, "
-                                  "not_found, method_not_allowed or internal_error.")
+    code: str = Field(description="validation_error, payload_too_large, rate_limited, "
+                                  "service_busy, not_found, method_not_allowed or "
+                                  "internal_error.")
     message: str = Field(description="Safe to show to the user.")
     details: list[ErrorDetail]
     request_id: str = Field(description="Matches the server log line for this request.")

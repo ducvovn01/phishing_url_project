@@ -29,6 +29,12 @@ class Settings:
     # In-flight /analyze requests per worker process; more are refused with 503.
     max_concurrency: int = 4
     docs_enabled: bool = True
+    # Per-client limit on /analyze (contract section 5.1): a burst of up to
+    # rate_limit_requests, given back at rate_limit_requests per rate_limit_window_seconds.
+    # Over it a request gets 429. Turning it off is for the before/after demo only.
+    rate_limit_enabled: bool = True
+    rate_limit_requests: int = 30
+    rate_limit_window_seconds: int = 60
 
 
 def _parse_origins(raw: str) -> tuple[str, ...]:
@@ -53,6 +59,16 @@ def _parse_bool(name: str, raw: str) -> bool:
     raise ConfigError(f"{name} must be true or false")
 
 
+def _parse_int(name: str, raw: str, low: int, high: int) -> int:
+    try:
+        value = int(raw)
+    except ValueError:
+        raise ConfigError(f"{name} must be an integer") from None
+    if not low <= value <= high:
+        raise ConfigError(f"{name} must be between {low} and {high}")
+    return value
+
+
 def load_settings(env: dict[str, str] | None = None) -> Settings:
     """Settings from `env` (default os.environ); unset variables keep the defaults."""
     env = os.environ if env is None else env
@@ -63,13 +79,16 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
     if "CORS_ALLOW_ORIGINS" in env:
         kwargs["cors_origins"] = _parse_origins(env["CORS_ALLOW_ORIGINS"])
     if "ANALYZE_MAX_CONCURRENCY" in env:
-        try:
-            limit = int(env["ANALYZE_MAX_CONCURRENCY"])
-        except ValueError:
-            raise ConfigError("ANALYZE_MAX_CONCURRENCY must be an integer") from None
-        if not 1 <= limit <= 64:
-            raise ConfigError("ANALYZE_MAX_CONCURRENCY must be between 1 and 64")
-        kwargs["max_concurrency"] = limit
+        kwargs["max_concurrency"] = _parse_int("ANALYZE_MAX_CONCURRENCY",
+                                               env["ANALYZE_MAX_CONCURRENCY"], 1, 64)
     if "API_DOCS_ENABLED" in env:
         kwargs["docs_enabled"] = _parse_bool("API_DOCS_ENABLED", env["API_DOCS_ENABLED"])
+    if "RATE_LIMIT_ENABLED" in env:
+        kwargs["rate_limit_enabled"] = _parse_bool("RATE_LIMIT_ENABLED", env["RATE_LIMIT_ENABLED"])
+    if "RATE_LIMIT_REQUESTS" in env:
+        kwargs["rate_limit_requests"] = _parse_int("RATE_LIMIT_REQUESTS",
+                                                   env["RATE_LIMIT_REQUESTS"], 1, 10000)
+    if "RATE_LIMIT_WINDOW_SECONDS" in env:
+        kwargs["rate_limit_window_seconds"] = _parse_int("RATE_LIMIT_WINDOW_SECONDS",
+                                                         env["RATE_LIMIT_WINDOW_SECONDS"], 1, 3600)
     return Settings(**{**settings.__dict__, **kwargs})

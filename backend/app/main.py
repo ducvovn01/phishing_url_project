@@ -1,6 +1,6 @@
 """FastAPI app: verified model loaded once at startup, then shared by all requests.
 
-Run from backend/:  uvicorn app.main:app --host 127.0.0.1 --port 8000
+Run from backend/:  uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers
 """
 import logging
 from collections.abc import Callable
@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import MAX_BODY_BYTES, Settings, load_settings
 from app.errors import install_error_handlers
 from app.middleware import BodySizeLimitMiddleware, RequestContextMiddleware
+from app.rate_limit import RateLimiter, RateLimitMiddleware
 from app.routes import ConcurrencyGuard, router
 from app.services.model_service import ModelService
 
@@ -54,6 +55,12 @@ def create_app(settings: Settings | None = None,
             logger.info("model %s %s loaded, sha256 %s verified, threshold %s",
                         manifest.name, manifest.version, manifest.sha256[:12],
                         service.threshold)
+        if settings.rate_limit_enabled:
+            logger.info("rate limit on: %d requests per %d s per client on /analyze",
+                        settings.rate_limit_requests, settings.rate_limit_window_seconds)
+        else:
+            logger.warning("rate limit OFF (RATE_LIMIT_ENABLED=false): demo use only, the "
+                           "503 concurrency cap is the only overload defence")
         yield
         app.state.model_service = None
 
@@ -68,11 +75,17 @@ def create_app(settings: Settings | None = None,
     )
     app.state.settings = settings
     app.state.guard = ConcurrencyGuard(settings.max_concurrency)
+    app.state.rate_limiter = (RateLimiter(settings.rate_limit_requests,
+                                          settings.rate_limit_window_seconds)
+                              if settings.rate_limit_enabled else None)
     app.state.model_service = None
     install_error_handlers(app)
     app.include_router(router)
     # Added innermost first: CORS wraps everything, so error responses get CORS headers too.
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=MAX_BODY_BYTES)
+    if app.state.rate_limiter is not None:
+        # Outside the body limit, so a limited client is refused before its body is read.
+        app.add_middleware(RateLimitMiddleware, limiter=app.state.rate_limiter)
     app.add_middleware(RequestContextMiddleware)
     app.add_middleware(
         CORSMiddleware,

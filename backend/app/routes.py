@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request
 from starlette.concurrency import run_in_threadpool
 
 from app.config import MAX_BODY_BYTES, RETRY_AFTER_SECONDS
-from app.errors import INVALID_BODY, INVALID_URL, INTERNAL, ApiError
+from app.errors import INVALID_BODY, INVALID_URL, INTERNAL, RATE_LIMITED, ApiError
 from app.schemas import AnalyzeRequest, AnalyzeResponse, ErrorResponse, HealthResponse, error_example
 
 router = APIRouter()
@@ -106,6 +106,12 @@ async def health(request: Request) -> HealthResponse:
                         "extra fields; malformed JSON; non-JSON Content-Type.",
                         "validation_error", INVALID_URL,
                         [{"field": "url", "message": "Must be 1 to 2048 characters."}]),
+        429: _error_doc("This client sent too many requests (checked before the body is "
+                        "read, so every request counts); retry after `Retry-After` seconds.",
+                        "rate_limited", RATE_LIMITED,
+                        headers={"Retry-After": {"description": "Whole seconds to wait, "
+                                                                "at least 1.",
+                                                 "schema": {"type": "integer"}}}),
         503: _error_doc("Too many analyses in progress; retry after `Retry-After` seconds.",
                         "service_busy", "The service is busy. Please try again in a moment.",
                         headers={"Retry-After": {"description": "Seconds to wait.",

@@ -14,6 +14,12 @@ ACCEPTED = {
     "HTTPS://EXAMPLE.COM/A": "HTTPS://EXAMPLE.COM/A",
     "example.com:8080/x": "example.com:8080/x",
     "localhost:8000": "localhost:8000",
+    # the frontend form accepts these too (contract rule 8); the backend has no host rule
+    "localhost": "localhost",
+    "LOCALHOST:8000": "LOCALHOST:8000",
+    "[::1]": "[::1]",
+    "[2001:db8::1]:443/login": "[2001:db8::1]:443/login",
+    "http://[2001:db8::1]:8080/a": "http://[2001:db8::1]:8080/a",
     "paypal.com:login@evil.tk": "paypal.com:login@evil.tk",
     "http://user:pass@host.com": "http://user:pass@host.com",
     "пример.рф/путь": "пример.рф/путь",
