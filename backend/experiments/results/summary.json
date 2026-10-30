@@ -1,0 +1,343 @@
+{
+  "model": {
+    "name": "char_ngram_logreg",
+    "version": "a2-3fa96dd",
+    "sha256": "66b9a09cb56aeccf64fc5632d178ac2ea53c126f1bc852c66f29c4a6f4829b41",
+    "threshold": 0.5
+  },
+  "seed": 42,
+  "attack_cases_total": 1095,
+  "attack": {
+    "A": {
+      "bases": 16,
+      "bases_detected_by_baseline": 16,
+      "variants": 79,
+      "variants_of_detected_bases": 79,
+      "evasion_rate": {
+        "baseline": {
+          "count": 0,
+          "of": 79,
+          "rate": 0.0
+        },
+        "naive_fold": {
+          "count": 0,
+          "of": 79,
+          "rate": 0.0
+        },
+        "defended": {
+          "count": 0,
+          "of": 79,
+          "rate": 0.0
+        }
+      },
+      "evasion_rate_by_strategy": {
+        "cyrillic_all": {
+          "baseline": {
+            "count": 0,
+            "of": 16,
+            "rate": 0.0
+          },
+          "naive_fold": {
+            "count": 0,
+            "of": 16,
+            "rate": 0.0
+          },
+          "defended": {
+            "count": 0,
+            "of": 16,
+            "rate": 0.0
+          }
+        },
+        "cyrillic_one": {
+          "baseline": {
+            "count": 0,
+            "of": 16,
+            "rate": 0.0
+          },
+          "naive_fold": {
+            "count": 0,
+            "of": 16,
+            "rate": 0.0
+          },
+          "defended": {
+            "count": 0,
+            "of": 16,
+            "rate": 0.0
+          }
+        },
+        "dot_diacritics_uncovered": {
+          "baseline": {
+            "count": 0,
+            "of": 16,
+            "rate": 0.0
+          },
+          "naive_fold": {
+            "count": 0,
+            "of": 16,
+            "rate": 0.0
+          },
+          "defended": {
+            "count": 0,
+            "of": 16,
+            "rate": 0.0
+          }
+        },
+        "fullwidth": {
+          "baseline": {
+            "count": 0,
+            "of": 16,
+            "rate": 0.0
+          },
+          "naive_fold": {
+            "count": 0,
+            "of": 16,
+            "rate": 0.0
+          },
+          "defended": {
+            "count": 0,
+            "of": 16,
+            "rate": 0.0
+          }
+        },
+        "greek_mixed": {
+          "baseline": {
+            "count": 0,
+            "of": 15,
+            "rate": 0.0
+          },
+          "naive_fold": {
+            "count": 0,
+            "of": 15,
+            "rate": 0.0
+          },
+          "defended": {
+            "count": 0,
+            "of": 15,
+            "rate": 0.0
+          }
+        }
+      }
+    },
+    "C": {
+      "bases": 200,
+      "bases_detected_by_baseline": 200,
+      "variants": 1000,
+      "variants_of_detected_bases": 1000,
+      "evasion_rate": {
+        "baseline": {
+          "count": 9,
+          "of": 1000,
+          "rate": 0.009
+        },
+        "naive_fold": {
+          "count": 1,
+          "of": 1000,
+          "rate": 0.001
+        },
+        "defended": {
+          "count": 1,
+          "of": 1000,
+          "rate": 0.001
+        }
+      },
+      "evasion_rate_by_strategy": {
+        "cyrillic_all": {
+          "baseline": {
+            "count": 1,
+            "of": 200,
+            "rate": 0.005
+          },
+          "naive_fold": {
+            "count": 0,
+            "of": 200,
+            "rate": 0.0
+          },
+          "defended": {
+            "count": 0,
+            "of": 200,
+            "rate": 0.0
+          }
+        },
+        "cyrillic_one": {
+          "baseline": {
+            "count": 0,
+            "of": 200,
+            "rate": 0.0
+          },
+          "naive_fold": {
+            "count": 0,
+            "of": 200,
+            "rate": 0.0
+          },
+          "defended": {
+            "count": 0,
+            "of": 200,
+            "rate": 0.0
+          }
+        },
+        "dot_diacritics_uncovered": {
+          "baseline": {
+            "count": 1,
+            "of": 200,
+            "rate": 0.005
+          },
+          "naive_fold": {
+            "count": 1,
+            "of": 200,
+            "rate": 0.005
+          },
+          "defended": {
+            "count": 1,
+            "of": 200,
+            "rate": 0.005
+          }
+        },
+        "fullwidth": {
+          "baseline": {
+            "count": 2,
+            "of": 200,
+            "rate": 0.01
+          },
+          "naive_fold": {
+            "count": 0,
+            "of": 200,
+            "rate": 0.0
+          },
+          "defended": {
+            "count": 0,
+            "of": 200,
+            "rate": 0.0
+          }
+        },
+        "greek_mixed": {
+          "baseline": {
+            "count": 5,
+            "of": 200,
+            "rate": 0.025
+          },
+          "naive_fold": {
+            "count": 0,
+            "of": 200,
+            "rate": 0.0
+          },
+          "defended": {
+            "count": 0,
+            "of": 200,
+            "rate": 0.0
+          }
+        }
+      }
+    },
+    "B": {
+      "variants": 16,
+      "detection_rate": {
+        "baseline": {
+          "count": 16,
+          "of": 16,
+          "rate": 1.0
+        },
+        "naive_fold": {
+          "count": 10,
+          "of": 16,
+          "rate": 0.625
+        },
+        "defended": {
+          "count": 16,
+          "of": 16,
+          "rate": 1.0
+        }
+      },
+      "ascii_official_twins_flagged_by_baseline": {
+        "count": 5,
+        "of": 8,
+        "rate": 0.625
+      }
+    }
+  },
+  "benign_flagged_as_phishing": {
+    "test_split_non_ascii": {
+      "urls": 60,
+      "changed_by_fold": 7,
+      "baseline": {
+        "count": 6,
+        "of": 60,
+        "rate": 0.1
+      },
+      "naive_fold": {
+        "count": 6,
+        "of": 60,
+        "rate": 0.1
+      },
+      "defended": {
+        "count": 6,
+        "of": 60,
+        "rate": 0.1
+      }
+    },
+    "test_split_sample": {
+      "urls": 5000,
+      "changed_by_fold": 0,
+      "baseline": {
+        "count": 384,
+        "of": 5000,
+        "rate": 0.0768
+      },
+      "naive_fold": {
+        "count": 384,
+        "of": 5000,
+        "rate": 0.0768
+      },
+      "defended": {
+        "count": 384,
+        "of": 5000,
+        "rate": 0.0768
+      }
+    },
+    "test_urls_csv_legit": {
+      "urls": 95,
+      "changed_by_fold": 0,
+      "baseline": {
+        "count": 23,
+        "of": 95,
+        "rate": 0.2421
+      },
+      "naive_fold": {
+        "count": 23,
+        "of": 95,
+        "rate": 0.2421
+      },
+      "defended": {
+        "count": 23,
+        "of": 95,
+        "rate": 0.2421
+      }
+    }
+  },
+  "benign_label_changes_vs_baseline": {
+    "naive_fold": {
+      "legit_to_phishing": 0,
+      "phishing_to_legit": 0
+    },
+    "defended": {
+      "legit_to_phishing": 0,
+      "phishing_to_legit": 0
+    }
+  },
+  "latency_ms_per_url": {
+    "baseline": {
+      "mean": 1.057,
+      "p95": 1.931,
+      "calls": 6250
+    },
+    "naive_fold": {
+      "mean": 0.843,
+      "p95": 1.738,
+      "calls": 6250
+    },
+    "defended": {
+      "mean": 0.69,
+      "p95": 1.455,
+      "calls": 6250
+    }
+  }
+}
