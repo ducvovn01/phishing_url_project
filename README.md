@@ -253,7 +253,7 @@ TODO(team): list the tools used, what they were used for, and how the output was
   TODO(team): add URL.
 - Mitake (TODO(team): confirm year and access date) *PhishingURLsANDBenignURLs*
   [dataset], Hugging Face. TODO(team): add URL.
-- semihGuner2002 (TODO(team): confirm year and access date) *PhishingURLsDataset*
+- Guner, S. (TODO(team): confirm year and access date) *PhishingURLsDataset*
   [dataset], Hugging Face (gated). TODO(team): add URL.
 - harisudhan411 (TODO(team): confirm year and access date) *phishing-and-legitimate-urls*
   [dataset], Kaggle. TODO(team): add URL.
