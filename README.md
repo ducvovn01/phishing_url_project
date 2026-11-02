@@ -125,8 +125,49 @@ is closed.
 
 ## Security
 
-Three items are marked for this assignment. The full analysis, with evidence numbers and
-limits, is in [docs/threat-model.md](docs/threat-model.md).
+### Threat model
+
+**Who would attack it, and what do they want?**
+
+- A phisher who wants a phishing link to be scored as legitimate. They rewrite the URL text, for
+  example with look-alike letters from other alphabets, so the model no longer recognises it.
+- An anonymous client who wants the service to stop answering real users. They flood `/analyze`,
+  send very large bodies, or keep analyses running so that others wait.
+- Anyone looking for a weakness in the setup rather than the code: a vulnerable dependency, a
+  permissive CORS policy, missing security headers or exposed API documentation.
+
+**What can they actually do?**
+
+The API has two endpoints, `GET /health` and `POST /analyze` (plus `/docs` when it is switched on).
+There are no accounts, no database, no file uploads and no outbound requests, so an attacker has
+two inputs: one URL string per request, and the number of requests. With them they can try to make
+a phishing URL score as legitimate (0.60% of our look-alike variants did before the defence, 0.05%
+after), and they can slow or block other users (with real inference and no defences, all 500
+flood requests were accepted and `/health` took 2104 ms at the 95th percentile). They cannot read
+files, run commands, reach other systems or see other users' data.
+
+**Which risks from the brief apply?**
+
+| Risk | Applies | Why |
+|---|---|---|
+| Denial of service | Yes, marked (Advanced) | Every request runs the model. Defence: per-client rate limit, body limit, URL length cap and a concurrency cap that answers 503. |
+| Misconfiguration and vulnerable dependencies | Yes, marked (Intermediate) | Headers, CORS, documentation and libraries can all be left in an unsafe state. Defence: header and CORS settings, `pip-audit`, `npm audit`, a ZAP scan. |
+| Detection evasion (2.8) | Yes, marked | The phisher's attack above. Defence: fold look-alike characters before scoring. |
+| Unsafe model loading | Yes, not marked | `joblib` can run code hidden in a file. The model's SHA-256 is checked against `backend/model_manifest.json` before it is loaded. |
+| Missing rate limiting | Yes | Built as the first layer of the denial of service defence, not claimed as a separate defence. |
+| Command injection | No | The backend runs no system command. The URL is only ever text. |
+| SSRF | No | The backend never opens, fetches or resolves the submitted URL. A test fails if analysis opens a socket. |
+| SQL injection | No | There is no database. |
+| Unsafe file upload | No | The only input is the JSON body `{"url": ...}`. There is no upload endpoint. |
+| Broken access control | No | There are no accounts or per-user records. |
+
+The full analysis, with evidence numbers and limits, is in
+[docs/threat-model.md](docs/threat-model.md).
+
+### Marked defences and attack
+
+Three items are marked for this assignment: denial of service and misconfiguration (section 2.7),
+and detection evasion (section 2.8).
 
 | Item | What | Where in code | Evidence | How to repeat |
 |---|---|---|---|---|
