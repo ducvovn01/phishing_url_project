@@ -13,7 +13,7 @@ This file is the single source of truth for what the frontend sends and what the
 | Format | JSON in both directions, `Content-Type: application/json` |
 | Interactive docs | `http://localhost:8000/docs` (FastAPI), on by default and switched off with `API_DOCS_ENABLED=false`. The Swagger page loads its script from a CDN, so it is blank without internet access. The API itself works offline. |
 | Analysis | From the URL text only. The backend never fetches the URL, does no WHOIS or DNS lookups, and calls no external service. |
-| Response headers | Every response carries `X-Request-ID` (the same value as `error.request_id` on errors), `Cache-Control: no-store`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`. API responses also carry a strict `Content-Security-Policy` and `X-Frame-Options: DENY`. |
+| Response headers | Every response carries `X-Request-ID` (the same value as `error.request_id` on errors), `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `Cross-Origin-Resource-Policy: same-origin`. API responses also carry a strict `Content-Security-Policy` and `X-Frame-Options: DENY`. |
 
 ## 2. Shared limits
 
@@ -332,3 +332,4 @@ Status: built (`backend/app/rate_limit.py`, PR #4). The frontend handles it, and
 | 2026-10-24 | Frontend now handles `429 rate_limited` (section 5.1, rule 7); the form accepts bracketed IPv6 literals and `localhost` (rule 8); `Retry-After` for 503 and 429 is a whole number of seconds and the frontend ignores any other form (such as an HTTP date), showing no wait line; the frontend default busy message now matches the server message | Vinh |
 | 2026-10-27 | Section 5.1 changed from planned to built (PR #4): token bucket defaults (burst of 30, refill 30 per 60 seconds), key is the socket address with `--no-proxy-headers`, checked before the body is read, 503 cap kept as the second layer, `RATE_LIMIT_ENABLED=false` demo-only switch; section 5 table row and status line updated | Vinh |
 | 2026-11-02 | Default concurrency cap (section 2) changed from 4 to 2 per worker process, from the real-inference cap sweep in `backend/README.md` section 7 | |
+| 2026-11-03 | Added Cross-Origin-Resource-Policy: same-origin | |

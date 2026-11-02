@@ -109,8 +109,10 @@ def test_security_headers(fake_client):
     assert headers["referrer-policy"] == "no-referrer"
     assert headers["content-security-policy"] == "default-src 'none'; frame-ancestors 'none'"
     assert headers["x-frame-options"] == "DENY"
+    assert headers["cross-origin-resource-policy"] == "same-origin"
     error_headers = fake_client.get("/nope").headers
     assert error_headers["x-content-type-options"] == "nosniff"
+    assert error_headers["cross-origin-resource-policy"] == "same-origin"
 
 
 def test_docs_and_openapi(fake_client):

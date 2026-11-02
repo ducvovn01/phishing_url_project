@@ -364,6 +364,28 @@ def test_health_is_not_limited():
         gate.set()
 
 
+def test_cross_origin_resource_policy_on_success_and_error_responses():
+    json_type = {"Content-Type": "application/json"}
+    origin = {"Origin": ALLOWED_ORIGIN}
+    with limited_client(rate_limit_requests=3) as c:
+        responses = {
+            200: c.post("/analyze", json={"url": "a.com"}, headers=origin),
+            422: c.post("/analyze", content=b"{}", headers={**json_type, **origin}),
+            413: c.post("/analyze", content=body_of_size(9000), headers={**json_type, **origin}),
+            429: c.post("/analyze", json={"url": "a.com"}, headers=origin),
+            404: c.get("/nope", headers=origin),
+        }
+    with make_client(max_concurrency=1) as c:
+        c.app.state.guard.try_acquire()  # hold the only slot
+        responses[503] = c.post("/analyze", json={"url": "a.com"}, headers=origin)
+        c.app.state.guard.release()
+    for status, response in responses.items():
+        assert response.status_code == status, response.text
+        assert response.headers["cross-origin-resource-policy"] == "same-origin", status
+        # CORS is unaffected: the frontend still gets its origin back.
+        assert response.headers["access-control-allow-origin"] == ALLOWED_ORIGIN, status
+
+
 # ---- CORS ------------------------------------------------------------------------------
 
 def test_cors_allows_only_the_frontend_origin(fake_client):

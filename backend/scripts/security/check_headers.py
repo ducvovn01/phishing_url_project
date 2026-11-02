@@ -28,7 +28,7 @@ LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
 FRONTEND = "http://localhost:5173"
 EVIL = "http://evil.example"
 HEADERS = ["X-Content-Type-Options", "Referrer-Policy", "Cache-Control",
-           "Content-Security-Policy", "X-Frame-Options", "Server",
+           "Content-Security-Policy", "X-Frame-Options", "Cross-Origin-Resource-Policy", "Server",
            "Access-Control-Allow-Origin", "Access-Control-Expose-Headers"]
 JSON_TYPE = {"Content-Type": "application/json"}
 PREFLIGHT = {"Access-Control-Request-Method": "POST",
