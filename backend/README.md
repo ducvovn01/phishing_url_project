@@ -6,7 +6,7 @@ DNS, runs WHOIS or calls any external service.
 
 ## 1. Setup
 
-Tested with Python 3.12.0 on Windows 11. Run everything from `backend/`.
+Tested with Python 3.12.10 on Windows 11. Run everything from `backend/`.
 
 ```bash
 cd backend
@@ -48,7 +48,7 @@ of this service, so the socket address is the only client identity.
 | Variable | Default | Meaning |
 |---|---|---|
 | `CORS_ALLOW_ORIGINS` | `http://localhost:5173` | Comma-separated exact origins. `*`, paths and wildcards are refused at startup. |
-| `ANALYZE_MAX_CONCURRENCY` | `2` | In-flight `/analyze` calls per worker process (1-64). The default of 2 comes from the real-inference cap sweep in section 7 (`evidence/dos_cap_sweep_real_*.json`): during a flood of 100 the `/health` p95 was 671 ms at cap 2 against 1243 ms at cap 4 and 1816 ms with no cap, while cap 1 (562 ms) served only 98 of 500 requests against 187 at cap 2; no cap size met the 0.5 s target. The cost is fewer simultaneous analyses: a request that arrives while two are already in flight is refused with 503. |
+| `ANALYZE_MAX_CONCURRENCY` | `2` | In-flight `/analyze` calls per worker process (1-64). The default of 2 comes from the real-inference cap sweep in section 7 (`evidence/dos_cap_sweep_real_*.json`): during a flood of 100 the `/health` p95 was 971 ms at cap 2 against 1576 ms at cap 4 and 2035 ms with no cap, while cap 1 (584 ms) served only 104 of 500 requests against 203 at cap 2; no cap size met the 0.5 s target. The cost is fewer simultaneous analyses: a request that arrives while two are already in flight is refused with 503. |
 | `RATE_LIMIT_REQUESTS` | `30` | Requests per client per window on `/analyze` (1-10000). |
 | `RATE_LIMIT_WINDOW_SECONDS` | `60` | The window, in whole seconds (1-3600). |
 | `RATE_LIMIT_ENABLED` | `true` | **Demo only.** `false` removes the per-client limit for the before/after recording; startup then logs a warning. Never set it in deployment. |
@@ -240,11 +240,11 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
   python scripts/security_smoke.py --burst 40 --json-out evidence/security_smoke.json
   ```
 
-  `evidence/security_smoke.json` is one real run against the defended server, recorded
-  before the rate limit existed: all 5 body cases passed, and the burst of 40 got 31 × 200
-  and 9 × 503, each with `Retry-After: 1`. It is not a before/after comparison. With the
-  rate limit on, burst requests past the client's limit get 429, which the script also
-  accepts.
+  `evidence/security_smoke.json` is one real run (2026-11-03, Python 3.12.10) against the
+  defended server with its default settings (rate limit on, cap 2): all 5 body cases
+  passed, and the burst of 40 got 9 × 200, 15 × 429 and 16 × 503, each 503 with
+  `Retry-After: 1`. It is not a before/after comparison. With the rate limit on, burst
+  requests past the client's limit get 429, which the script also accepts.
 - **Rate limit before/after** (localhost only, capped):
 
   ```bash
@@ -264,18 +264,18 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
   side by side. It refuses to pass a before phase that saw a 429, or an after phase with
   no 429, a malformed 429 or a spoofed address that got through.
 
-  `evidence/rate_limit_before_after.json` is one real run (2026-10-27, default settings
-  for the after phase):
+  `evidence/rate_limit_before_after.json` is one real run (2026-11-03, Python 3.12.10,
+  default settings for the after phase, so the concurrency cap is 2 in both phases):
 
   | | before (limiter off) | after (limiter on) |
   |---|---|---|
-  | burst of 20: 200 / 503 | 15 / 5 | 7 / 13 |
+  | burst of 20: 200 / 503 | 2 / 18 | 2 / 18 |
   | flood of 60: 200 / 429 | 60 / 0 | 10 / 50 |
-  | accepted before the first 429 | – | 30 (burst 20 + flood 10) |
-  | `Retry-After` on 429 | – | 1, 2 |
+  | accepted before the first 429 | - | 30 (burst 20 + flood 10) |
+  | `Retry-After` on 429 | - | 2 |
   | 5 spoofed `X-Forwarded-For` that got through | 5 (no limit) | 0 |
-  | after sleeping `Retry-After` | – | 200 |
-  | model runs / requests sent | 80 / 85 | 18 / 86 |
+  | after sleeping `Retry-After` | - | 200 |
+  | model runs / requests sent | 67 / 85 | 13 / 86 |
 - **Denial of service before/after** (503 cap and body limit, localhost only, capped).
   `scripts/security/dos_before_after.py` has two modes for what makes a request
   expensive:
@@ -318,58 +318,59 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
   platform, uvicorn, fastapi and scikit-learn versions and the model version (from
   `model_manifest.json`).
 
-  Delay mode, one real run (2026-11-02, 5 repeats, Python 3.14.7 on Windows; ms as
+  Delay mode, one real run (2026-11-03, 5 repeats, Python 3.12.10 on Windows; ms as
   median / p95 / max). Both phases PASS:
 
-  | | before (cap and body limit off) | after (cap 4, the default when recorded) |
+  | | before (cap and body limit off) | after (defaults, cap 2) |
   |---|---|---|
-  | one slow `/analyze` | 1025 / 1086 / 1086 ms | 1035 / 1111 / 1111 ms |
-  | beside it: `/health` | 2 / 21 / 28 ms | 3 / 21 / 25 ms |
-  | beside it: `/analyze` probe | 1010 / 1014 / 1014 ms, 5 × 200 | 1012 / 1027 / 1027 ms, 5 × 200 |
-  | flood of 5 × 100: 200 / 503 | 500 / 0 | 20 / 480 |
-  | flood: time to 200 | 2254 / 3314 / 3333 ms | 1050 / 1062 / 1062 ms |
-  | flood: time to 503 | - | 109 / 202 / 219 ms, `Retry-After: 1` |
-  | during flood: `/health` | 2 / 22 / 32 ms | 3 / 111 / 116 ms |
-  | during flood: `/analyze` probe | 3215 / 3230 / 3230 ms, 5 × 200 | 113 / 121 / 121 ms, 5 × 503 |
-  | 9 KB / 1 MB / 10 MB body | 200 / 200 / 200, about 1.2 s each | 413 / 413 / 413 in 2 / 1 / 2 ms |
+  | one slow `/analyze` | 1024 / 1073 / 1073 ms | 1008 / 1084 / 1084 ms |
+  | beside it: `/health` | 3 / 25 / 28 ms | 3 / 27 / 28 ms |
+  | beside it: `/analyze` probe | 1010 / 1011 / 1011 ms, 5 × 200 | 1010 / 1031 / 1031 ms, 5 × 200 |
+  | flood of 5 × 100: 200 / 503 | 500 / 0 | 10 / 490 |
+  | flood: time to 200 | 2246 / 3330 / 3343 ms | 1032 / 1039 / 1039 ms |
+  | flood: time to 503 | - | 108 / 211 / 236 ms, `Retry-After: 1` |
+  | during flood: `/health` | 2 / 25 / 90 ms | 3 / 107 / 138 ms |
+  | during flood: `/analyze` probe | 3216 / 3242 / 3242 ms, 5 × 200 | 110 / 142 / 142 ms, 5 × 503 |
+  | 9 KB / 1 MB / 10 MB body | 200 / 200 / 200, about 1.2 s each | 413 / 413 / 413 in 2 / 22 / 2 ms |
 
   Before, all 100 requests were accepted and queued: a 1 s analysis took up to 3.3 s, and
-  every oversized body was read in full and analysed. After (cap 4, the default when this was recorded), 4 requests at a time ran in
-  about 1 s and the rest were refused in a fraction of a second. In both phases
+  every oversized body was read in full and analysed. After (cap 2, the default), 2
+  requests at a time ran in about 1 s and the rest were refused in a fraction of a second. In both phases
   `/health` stayed well under 0.5 s, because a sleeping worker thread does not hold up
   the event loop.
 
-  Real mode, one real run (2026-11-02, same machine and versions). Before PASS, after
-  **FAIL**: the median 503 took 633 ms and the `/health` p95 during the flood was
-  1557 ms, both over 0.5 s:
+  Real mode, one real run (2026-11-03, same machine and versions). Before PASS, after
+  **FAIL**: the `/health` p95 during the flood was 925 ms, over 0.5 s (the median 503,
+  474 ms, was under it):
 
-  | | before (cap and body limit off) | after (cap 4, the default when recorded) |
+  | | before (cap and body limit off) | after (defaults, cap 2) |
   |---|---|---|
-  | one longest-URL `/analyze` | 16 / 90 / 90 ms | 21 / 98 / 98 ms |
-  | beside it: `/health` | 3 / 22 / 27 ms | 2 / 25 / 27 ms |
-  | beside it: `/analyze` probe | 21 / 32 / 32 ms, 5 × 200 | 22 / 38 / 38 ms, 5 × 200 |
-  | flood of 5 × 100: 200 / 503 | 500 / 0 | 385 / 115 |
-  | flood: time to 200 | 1039 / 1953 / 2178 ms | 876 / 1704 / 1830 ms |
-  | flood: time to 503 | - | 633 / 1629 / 1813 ms, `Retry-After: 1` |
-  | during flood: `/health` | 2 / 1796 / 1996 ms | 14 / 1557 / 1671 ms |
-  | during flood: `/analyze` probe | 1963 / 2082 / 2082 ms, 5 × 200 | 1645 / 1746 / 1746 ms, 5 × 200 |
-  | crafted input, 30 each: short URL | 4 / 27 / 30 ms | 5 / 29 / 30 ms |
-  | crafted input, 30 each: longest URL | 28 / 45 / 147 ms | 23 / 50 / 159 ms |
-  | longest / short, median and p95 | 6.4x, 1.7x | 5.0x, 1.7x |
-  | 9 KB / 1 MB / 10 MB body | 200 / 200 / 200 in 216 / 234 / 264 ms | 413 / 413 / 413 in 25 / 2 / 25 ms |
+  | one longest-URL `/analyze` | 20 / 152 / 152 ms | 104 / 168 / 168 ms |
+  | beside it: `/health` | 8 / 27 / 92 ms | 2 / 26 / 68 ms |
+  | beside it: `/analyze` probe | 43 / 96 / 96 ms, 5 × 200 | 24 / 83 / 83 ms, 5 × 200 |
+  | flood of 5 × 100: 200 / 503 | 500 / 0 | 192 / 308 |
+  | flood: time to 200 | 1146 / 2181 / 2364 ms | 578 / 1053 / 1142 ms |
+  | flood: time to 503 | - | 474 / 1017 / 1126 ms, `Retry-After: 1` |
+  | during flood: `/health` | 3 / 2104 / 2138 ms | 16 / 925 / 1012 ms |
+  | during flood: `/analyze` probe | 2225 / 2268 / 2268 ms, 5 × 200 | 974 / 1029 / 1029 ms, 2 × 200, 3 × 503 |
+  | crafted input, 30 each: short URL | 4 / 28 / 29 ms | 15 / 31 / 32 ms |
+  | crafted input, 30 each: longest URL | 30 / 97 / 110 ms | 20 / 92 / 108 ms |
+  | longest / short, median and p95 | 6.6x, 3.4x | 1.3x, 3.0x |
+  | 9 KB / 1 MB / 10 MB body | 200 / 200 / 200 in 206 / 222 / 273 ms | 413 / 413 / 413 in 2 / 2 / 2 ms |
 
-  With real inference a single expensive request is only about 20 ms, so the "slow"
-  step is not slow and slots free quickly: after accepted 385 of 500 flood requests.
-  Under the flood both servers became slow, `/health` included, and the cap made
-  only a small difference. The body limit still worked as designed. A second after run
-  (not recorded) gave the same `/health` result (p95 1513 ms) but a median 503 of
-  169 ms, so the 503 timing varies between runs. A likely cause, not measured here: the
+  With real inference a single expensive request has a median of 20 to 104 ms in these
+  runs, so the "slow" step is not slow and slots free quickly: after accepted 192 of 500
+  flood requests. Under the flood both servers became slow, `/health` included; the cap
+  of 2 cut the `/health` p95 from 2104 to 925 ms, but not under 0.5 s. The body limit
+  still worked as designed. An earlier, unrecorded after run at cap 4 (then the default)
+  gave a median 503 of 169 ms against 633 ms in its recorded run, so the 503 timing
+  varies between runs. A likely cause, not measured here: the
   inference is CPU-bound Python, so worker threads compete with the event loop for the
   GIL, and the event loop also parses all 100 requests. The delay-mode result does not
   carry over to real inference.
-- **Concurrency cap sweep with real inference.** Four real-mode runs on 2026-11-02, each
+- **Concurrency cap sweep with real inference.** Four real-mode runs on 2026-11-03, each
   against a fresh server (limiter off, no demo delay), the default flood (100 concurrent,
-  5 repeats), Python 3.14.7 (`backend/.venv`) on Windows, load generator and server on
+  5 repeats), Python 3.12.10 (`backend/.venv`) on Windows, load generator and server on
   the same machine:
 
   ```bash
@@ -384,19 +385,20 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
 
   | flood of 5 × 100 (ms as median / p95 / max) | no cap | cap 1 | cap 2 | cap 4 |
   |---|---|---|---|---|
-  | 200 / 503 | 500 / 0 | 98 / 402 | 187 / 313 | 353 / 147 |
-  | time to 503 (median / p95) | - | 291 / 656 | 350 / 785 | 196 / 1272 |
-  | time to 200 (median / p95) | 1039 / 1920 | 359 / 692 | 426 / 824 | 755 / 1372 |
-  | `/health` during the flood | 12 / 1816 / 1884 | 9 / 562 / 670 | 15 / 671 / 791 | 14 / 1243 / 1355 |
-  | `/analyze` probe during the flood | 1921 / 2017 / 2017, 5 × 200 | 584 / 674 / 674, 5 × 503 | 792 / 825 / 825, 5 × 200 | 1289 / 1543 / 1543, 4 × 200, 1 × 503 |
-  | result | PASS | FAIL: `/health` p95 562 ms | FAIL: `/health` p95 671 ms | FAIL: `/health` p95 1243 ms |
+  | 200 / 503 | 500 / 0 | 104 / 396 | 203 / 297 | 371 / 129 |
+  | time to 503 (median / p95) | - | 364 / 760 | 547 / 1104 | 379 / 1575 |
+  | time to 200 (median / p95) | 1184 / 2165 | 381 / 780 | 624 / 1151 | 920 / 1698 |
+  | `/health` during the flood | 2 / 2035 / 2114 | 3 / 584 / 798 | 13 / 971 / 1241 | 14 / 1576 / 1657 |
+  | `/analyze` probe during the flood | 2199 / 2272 / 2272, 5 × 200 | 608 / 901 / 901, 3 × 200, 2 × 503 | 1055 / 1283 / 1283, 2 × 200, 3 × 503 | 1645 / 1829 / 1829, 5 × 200 |
+  | result | PASS | FAIL: `/health` p95 584 ms | FAIL: median 503 553 ms, `/health` p95 971 ms | FAIL: `/health` p95 1576 ms |
 
   "no cap" is a before phase, so its PASS only means the run was sound (no 503); its
-  `/health` p95 of 1816 ms is the undefended baseline. In these runs a smaller cap gave
-  a more responsive server: the `/health` p95 fell from 1816 ms (no cap) to 1243, 671
-  and 562 ms (cap 4, 2, 1), and the time to 200 fell with it. The price is fewer
-  accepted requests: 353, 187 and 98 of 500. No cap size met the 0.5 s `/health` rule;
-  cap 1 came closest. The 503s were not always fast: their p95 was 656 to 1272 ms. Each
+  `/health` p95 of 2035 ms is the undefended baseline. In these runs a smaller cap gave
+  a more responsive server: the `/health` p95 fell from 2035 ms (no cap) to 1576, 971
+  and 584 ms (cap 4, 2, 1), and the time to 200 fell with it. The price is fewer
+  accepted requests: 371, 203 and 104 of 500. No cap size met the 0.5 s `/health` rule;
+  cap 1 came closest. The 503s were not always fast: their p95 was 760 to 1575 ms (the
+  cap 2 result row's 553 ms median counts the probe's 503s too). Each
   figure comes from one run of 5 repeats; the earlier real-mode runs above show that
   the 503 timing in particular varies between runs.
 
@@ -405,7 +407,7 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
   (2) the load generator's 100 threads share the CPU with the server, which may inflate
   every latency compared with a separate client machine.
 - **Dependencies:** `pip-audit -r requirements.txt -r requirements-dev.txt` found no known
-  vulnerabilities on 2026-10-17 (`evidence/pip_audit.txt`).
+  vulnerabilities on 2026-11-03 with Python 3.12.10 (`evidence/pip_audit.txt`).
 - **Worst case per request:** a 2048-character URL takes about 30-70 ms on the test laptop,
   against about 3 ms for a typical URL. Body size, URL length and the concurrency cap
   bound the work any single client can cause.
@@ -485,7 +487,7 @@ sound: only the expected statuses, the server detected in the expected mode (thr
 the same samples in both phases. It does not require the defence to help. Results go to
 `evidence/evasion_before_after.json`.
 
-One real run (2026-11-02, Python 3.14.7 on Windows; rates as mean (min to max) over the
+One real run (2026-11-03, Python 3.12.10 on Windows; rates as mean (min to max) over the
 10 repeats). Both phases PASS:
 
 | | before (defence off) | after (defence on) |
@@ -498,8 +500,8 @@ One real run (2026-11-02, Python 3.14.7 on Windows; rates as mean (min to max) o
 | dot_diacritics_uncovered | 0.26% (0.00 to 0.86) | 0.26% (0.00 to 0.86) |
 | adaptive attacker (bases with a way through) | 2.24% (0.86 to 4.31) | 0.26% (0.00 to 0.86) |
 | benign false positives | 20 of 295 (6.78%), 1 non-ASCII | 20 of 295 (6.78%), 1 non-ASCII |
-| latency, attack, median / p95 | 8.53 / 31.1 ms | 7.33 / 31.07 ms |
-| latency, benign, median / p95 | 6.09 / 29.22 ms | 4.16 / 27.85 ms |
+| latency, attack, median / p95 | 10.32 / 31.47 ms | 9.68 / 32.11 ms |
+| latency, benign, median / p95 | 6.9 / 29.57 ms | 4.94 / 29.71 ms |
 
 Paired per repeat (before minus after): the evasion rate fell by 0.56 percentage points
 on average (0.17 to 1.21) and the defence helped in 10 of 10 repeats, never hurt. The
@@ -514,8 +516,9 @@ What this means:
   covers (Cyrillic, Greek, fullwidth), and against an attacker who tries all five
   strategies it cut the bases with a way through from 2.24% to 0.26%.
 - Its cost, measured here, is nil in this run: the benign false positive count did not
-  change (20 of 295 in both phases), and latency did not rise (the differences are
-  within run-to-run noise on one laptop).
+  change (20 of 295 in both phases), and latency did not change measurably (the medians
+  were lower and the p95 values under 1 ms higher with the defence on, within run-to-run
+  noise on one laptop).
 - Its limits, from FINDINGS.md: letters outside the table in `normalization.py` are not
   folded, and diacritic look-alikes (`ạ`, `ọ`) are left alone on purpose; the
   `dot_diacritics_uncovered` row is the same in both phases for that reason.

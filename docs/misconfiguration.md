@@ -1,14 +1,15 @@
 # Misconfiguration review (section 2.7)
 
-Evidence gathered on 2026-11-02 on Windows 11. The brief asks for pip-audit, npm audit and an
+Evidence gathered on 2026-11-02 on Windows 11; the audits and the header check were re-run on
+2026-11-03 with Python 3.12.10. The brief asks for pip-audit, npm audit and an
 OWASP ZAP scan of the running app, then a decision on each finding. The audits and the header
 check below were run for real, and the ZAP scans were run by hand on 2026-11-03 (see the
 last section).
 
 | Evidence | Command | File |
 |---|---|---|
-| Python dependencies | `pip-audit -r requirements.txt -r requirements-dev.txt` (from `backend/`, pip-audit 2.10.1, Python 3.14.7) | `backend/evidence/pip_audit.txt` |
-| JavaScript dependencies | `npm audit` (from `frontend/`, npm 11.19.0, Node v26.8.1), 2026-11-02: first run 1 high (`follow-redirects`), 0 vulnerabilities after `npm audit fix` | `frontend/evidence/npm_audit.txt` (the run after the fix) |
+| Python dependencies | `pip-audit -r requirements.txt -r requirements-dev.txt` (from `backend/`, pip-audit 2.10.1, Python 3.12.10), 2026-11-03: no known vulnerabilities | `backend/evidence/pip_audit.txt` |
+| JavaScript dependencies | `npm audit` (from `frontend/`, npm 11.19.0, Node v26.8.1), 2026-11-02: first run 1 high (`follow-redirects`), 0 vulnerabilities after `npm audit fix`; re-run 2026-11-03: 0 vulnerabilities | `frontend/evidence/npm_audit.txt` (the 2026-11-03 run) |
 | Response headers and CORS | `scripts/security/check_headers.py`, two runs on port 8001 with the README command (`--no-proxy-headers --no-server-header --no-access-log`): `API_DOCS_ENABLED` at its default, then `API_DOCS_ENABLED=false` | `backend/evidence/security_headers.json` |
 | ZAP API scan, docs on, before the CORP fix | `zap-api-scan.py`, ZAP 2.17.0 (see "ZAP scan") | `backend/evidence/zap_api_docs_on_before_fix.html`, `backend/evidence/zap_api_docs_on_before_fix.json` |
 | ZAP API scan, docs on, after the CORP fix | `zap-api-scan.py`, ZAP 2.17.0 | `backend/evidence/zap_api_docs_on.html`, `backend/evidence/zap_api_docs_on.json` |
@@ -25,7 +26,7 @@ last section).
 | With docs off, the 404 for `/docs` has no `Content-Security-Policy` or `X-Frame-Options` | header check | Low | Justified | The middleware exempts the `/docs` path from the API-only headers whether or not docs are enabled. The 404 is a JSON error body with `nosniff` and `no-store`, so there is nothing to frame or run. |
 | CORS preflight responses (`OPTIONS`) carry none of the security headers | header check | Low | Justified | `CORSMiddleware` is the outermost layer and answers preflights itself. The bodies are fixed plain text (200 for the allowed origin, 400 for others) with no data. |
 | CORS is pinned to one exact origin | header check, manual review (`app/config.py`) | None (control in place) | Fixed (by design) | Preflight from `http://localhost:5173`: 200 with `Access-Control-Allow-Origin: http://localhost:5173`. Preflight from `http://evil.example`: 400 and no `Access-Control-Allow-Origin`. Credentials are off, and `*`, paths and wildcards in `CORS_ALLOW_ORIGINS` are refused at startup. |
-| Security headers on API responses | header check | None (control in place) | Fixed | Every JSON response checked (200, 422, 404, 405, `/openapi.json`) has `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'` and `X-Frame-Options: DENY`. No response had a `Server` header. Since 2026-11-03 every response also carries `Cross-Origin-Resource-Policy: same-origin` (ZAP finding below; the header check evidence was recorded before that change, so the header is checked by the backend tests and the second ZAP report instead). |
+| Security headers on API responses | header check | None (control in place) | Fixed | Every JSON response checked (200, 422, 404, 405, `/openapi.json`) has `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'` and `X-Frame-Options: DENY`. No response had a `Server` header. Since 2026-11-03 every response also carries `Cross-Origin-Resource-Policy: same-origin` (ZAP finding below), recorded by the 2026-11-03 header check on every non-preflight response and also checked by the backend tests and the second ZAP report. |
 | No `Server` header | header check | None (control in place) | Fixed by the run command | The README command passes `--no-server-header`. Not tested without that flag. |
 | The frontend dev server sends no CSP, `X-Content-Type-Options` or frame protection | manual review (`docs/frontend-security.md` section 3) | Medium if deployed, low as run (localhost only) | Justified | The frontend runs only as a local dev server or a static build on localhost; there is no production host to configure. The headers a host should set (strict CSP with `connect-src` limited to the API origin, `frame-ancestors 'none'`) are listed in that section. |
 | The rate limit (429) and the concurrency cap (503) are per worker process and held in memory | manual review (README section 7) | Low | Justified | The service runs as one uvicorn process on localhost, so per-process is the whole service. With N workers the limits become N times larger, and a restart resets the limiter. The limiter keys on the socket address with `--no-proxy-headers`, so all localhost traffic shares one bucket (which matters for scanners, see below). |

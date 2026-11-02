@@ -1,7 +1,7 @@
 {
   "phases": {
     "before": {
-      "recorded_at": "2026-11-02T12:45:08+00:00",
+      "recorded_at": "2026-11-02T13:37:55+00:00",
       "port": 8000,
       "expected_server": {
         "HOMOGLYPH_DEFENCE": false,
@@ -98,13 +98,13 @@
         },
         "latency_ms": {
           "attack": {
-            "median": 8.53,
-            "p95": 31.1,
+            "median": 10.32,
+            "p95": 31.47,
             "requests": 5790
           },
           "benign": {
-            "median": 6.09,
-            "p95": 29.22,
+            "median": 6.9,
+            "p95": 29.57,
             "requests": 300
           }
         }
@@ -463,7 +463,7 @@
       ]
     },
     "after": {
-      "recorded_at": "2026-11-02T12:46:59+00:00",
+      "recorded_at": "2026-11-02T13:39:56+00:00",
       "port": 8000,
       "expected_server": {
         "HOMOGLYPH_DEFENCE": true,
@@ -560,13 +560,13 @@
         },
         "latency_ms": {
           "attack": {
-            "median": 7.33,
-            "p95": 31.07,
+            "median": 9.68,
+            "p95": 32.11,
             "requests": 5790
           },
           "benign": {
-            "median": 4.16,
-            "p95": 27.85,
+            "median": 4.94,
+            "p95": 29.71,
             "requests": 300
           }
         }

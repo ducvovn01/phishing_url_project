@@ -1,7 +1,7 @@
 {
   "runs": {
     "docs on (default)": {
-      "recorded_at": "2026-11-02T12:51:27+00:00",
+      "recorded_at": "2026-11-02T13:40:30+00:00",
       "port": 8001,
       "requests": [
         {
@@ -14,6 +14,7 @@
             "Cache-Control": "no-store",
             "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
             "X-Frame-Options": "DENY",
+            "Cross-Origin-Resource-Policy": "same-origin",
             "Server": null,
             "Access-Control-Allow-Origin": "http://localhost:5173",
             "Access-Control-Expose-Headers": "Retry-After, X-Request-ID"
@@ -30,6 +31,7 @@
             "Cache-Control": "no-store",
             "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
             "X-Frame-Options": "DENY",
+            "Cross-Origin-Resource-Policy": "same-origin",
             "Server": null,
             "Access-Control-Allow-Origin": "http://localhost:5173",
             "Access-Control-Expose-Headers": "Retry-After, X-Request-ID"
@@ -46,6 +48,7 @@
             "Cache-Control": "no-store",
             "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
             "X-Frame-Options": "DENY",
+            "Cross-Origin-Resource-Policy": "same-origin",
             "Server": null,
             "Access-Control-Allow-Origin": "http://localhost:5173",
             "Access-Control-Expose-Headers": "Retry-After, X-Request-ID"
@@ -62,6 +65,7 @@
             "Cache-Control": "no-store",
             "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
             "X-Frame-Options": "DENY",
+            "Cross-Origin-Resource-Policy": "same-origin",
             "Server": null,
             "Access-Control-Allow-Origin": "http://localhost:5173",
             "Access-Control-Expose-Headers": "Retry-After, X-Request-ID"
@@ -78,6 +82,7 @@
             "Cache-Control": "no-store",
             "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
             "X-Frame-Options": "DENY",
+            "Cross-Origin-Resource-Policy": "same-origin",
             "Server": null,
             "Access-Control-Allow-Origin": "http://localhost:5173",
             "Access-Control-Expose-Headers": "Retry-After, X-Request-ID"
@@ -94,6 +99,7 @@
             "Cache-Control": null,
             "Content-Security-Policy": null,
             "X-Frame-Options": null,
+            "Cross-Origin-Resource-Policy": null,
             "Server": null,
             "Access-Control-Allow-Origin": "http://localhost:5173",
             "Access-Control-Expose-Headers": null
@@ -110,6 +116,7 @@
             "Cache-Control": null,
             "Content-Security-Policy": null,
             "X-Frame-Options": null,
+            "Cross-Origin-Resource-Policy": null,
             "Server": null,
             "Access-Control-Allow-Origin": null,
             "Access-Control-Expose-Headers": null
@@ -126,6 +133,7 @@
             "Cache-Control": "no-store",
             "Content-Security-Policy": null,
             "X-Frame-Options": null,
+            "Cross-Origin-Resource-Policy": "same-origin",
             "Server": null,
             "Access-Control-Allow-Origin": null,
             "Access-Control-Expose-Headers": null
@@ -144,6 +152,7 @@
             "Cache-Control": "no-store",
             "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
             "X-Frame-Options": "DENY",
+            "Cross-Origin-Resource-Policy": "same-origin",
             "Server": null,
             "Access-Control-Allow-Origin": null,
             "Access-Control-Expose-Headers": null
@@ -159,7 +168,7 @@
       ]
     },
     "docs off": {
-      "recorded_at": "2026-11-02T12:51:32+00:00",
+      "recorded_at": "2026-11-02T13:40:52+00:00",
       "port": 8001,
       "requests": [
         {
@@ -172,6 +181,7 @@
             "Cache-Control": "no-store",
             "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
             "X-Frame-Options": "DENY",
+            "Cross-Origin-Resource-Policy": "same-origin",
             "Server": null,
             "Access-Control-Allow-Origin": "http://localhost:5173",
             "Access-Control-Expose-Headers": "Retry-After, X-Request-ID"
@@ -188,6 +198,7 @@
             "Cache-Control": "no-store",
             "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
             "X-Frame-Options": "DENY",
+            "Cross-Origin-Resource-Policy": "same-origin",
             "Server": null,
             "Access-Control-Allow-Origin": "http://localhost:5173",
             "Access-Control-Expose-Headers": "Retry-After, X-Request-ID"
@@ -204,6 +215,7 @@
             "Cache-Control": "no-store",
             "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
             "X-Frame-Options": "DENY",
+            "Cross-Origin-Resource-Policy": "same-origin",
             "Server": null,
             "Access-Control-Allow-Origin": "http://localhost:5173",
             "Access-Control-Expose-Headers": "Retry-After, X-Request-ID"
@@ -220,6 +232,7 @@
             "Cache-Control": "no-store",
             "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
             "X-Frame-Options": "DENY",
+            "Cross-Origin-Resource-Policy": "same-origin",
             "Server": null,
             "Access-Control-Allow-Origin": "http://localhost:5173",
             "Access-Control-Expose-Headers": "Retry-After, X-Request-ID"
@@ -236,6 +249,7 @@
             "Cache-Control": "no-store",
             "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
             "X-Frame-Options": "DENY",
+            "Cross-Origin-Resource-Policy": "same-origin",
             "Server": null,
             "Access-Control-Allow-Origin": "http://localhost:5173",
             "Access-Control-Expose-Headers": "Retry-After, X-Request-ID"
@@ -252,6 +266,7 @@
             "Cache-Control": null,
             "Content-Security-Policy": null,
             "X-Frame-Options": null,
+            "Cross-Origin-Resource-Policy": null,
             "Server": null,
             "Access-Control-Allow-Origin": "http://localhost:5173",
             "Access-Control-Expose-Headers": null
@@ -268,6 +283,7 @@
             "Cache-Control": null,
             "Content-Security-Policy": null,
             "X-Frame-Options": null,
+            "Cross-Origin-Resource-Policy": null,
             "Server": null,
             "Access-Control-Allow-Origin": null,
             "Access-Control-Expose-Headers": null
@@ -284,6 +300,7 @@
             "Cache-Control": "no-store",
             "Content-Security-Policy": null,
             "X-Frame-Options": null,
+            "Cross-Origin-Resource-Policy": "same-origin",
             "Server": null,
             "Access-Control-Allow-Origin": null,
             "Access-Control-Expose-Headers": null
@@ -300,6 +317,7 @@
             "Cache-Control": "no-store",
             "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
             "X-Frame-Options": "DENY",
+            "Cross-Origin-Resource-Policy": "same-origin",
             "Server": null,
             "Access-Control-Allow-Origin": null,
             "Access-Control-Expose-Headers": null

@@ -2,11 +2,11 @@
   "phases": {
     "after": {
       "label": "cap 2",
-      "recorded_at": "2026-11-02T12:24:54+00:00",
+      "recorded_at": "2026-11-02T13:35:40+00:00",
       "port": 8000,
       "expensive": "real",
       "environment": {
-        "python": "3.14.7",
+        "python": "3.12.10",
         "platform": "Windows",
         "uvicorn": "0.54.0",
         "fastapi": "0.143.3",
@@ -27,30 +27,31 @@
       "flood_size": 100,
       "passed": false,
       "problems": [
-        "/health during the flood had p95 671.3 ms, not under 500 ms"
+        "the median 503 took 552.55 ms, not under 500 ms",
+        "/health during the flood had p95 970.8 ms, not under 500 ms"
       ],
       "summary": {
         "slow_request_ms": {
-          "min": 16.9,
-          "median": 29.8,
-          "p95": 61.0,
-          "max": 61.0
+          "min": 18.4,
+          "median": 44.0,
+          "p95": 168.0,
+          "max": 168.0
         },
         "idle": {
           "health_ms": {
-            "min": 1.1,
-            "median": 2.2,
-            "p95": 20.0,
-            "max": 26.4
+            "min": 1.4,
+            "median": 6.1,
+            "p95": 24.1,
+            "max": 68.2
           },
           "health_statuses": {
             "200": 50
           },
           "analyze_probe_ms": {
-            "min": 16.8,
-            "median": 17.4,
-            "p95": 20.4,
-            "max": 20.4
+            "min": 20.7,
+            "median": 22.4,
+            "p95": 83.4,
+            "max": 83.4
           },
           "analyze_probe_statuses": {
             "200": 5
@@ -59,48 +60,49 @@
         "flood": {
           "requests": 500,
           "status_counts": {
-            "200": 187,
-            "503": 313
+            "200": 203,
+            "503": 297
           },
           "ms_by_status": {
             "200": {
-              "min": 31.2,
-              "median": 426.1,
-              "p95": 824.3,
-              "max": 909.9
+              "min": 54.7,
+              "median": 623.8,
+              "p95": 1151.3,
+              "max": 1368.0
             },
             "503": {
-              "min": 15.8,
-              "median": 349.5,
-              "p95": 784.8,
-              "max": 887.2
+              "min": 20.8,
+              "median": 547.2,
+              "p95": 1103.6,
+              "max": 1346.6
             }
           },
           "retry_after_on_503": [
             1
           ],
           "health_ms": {
-            "min": 1.2,
-            "median": 15.0,
-            "p95": 671.3,
-            "max": 790.6
+            "min": 1.3,
+            "median": 13.1,
+            "p95": 970.8,
+            "max": 1240.9
           },
           "health_statuses": {
             "200": 50
           },
           "analyze_probe_ms": {
-            "min": 630.1,
-            "median": 792.5,
-            "p95": 825.0,
-            "max": 825.0
+            "min": 931.0,
+            "median": 1055.4,
+            "p95": 1282.9,
+            "max": 1282.9
           },
           "analyze_probe_statuses": {
-            "200": 5
+            "200": 2,
+            "503": 3
           }
         },
         "all_503": {
-          "count": 313,
-          "median_ms": 349.5,
+          "count": 300,
+          "median_ms": 552.55,
           "without_retry_after": 0
         }
       },
@@ -109,10 +111,10 @@
         "short_url": {
           "chars": 30,
           "ms": {
-            "min": 4.3,
-            "median": 15.4,
-            "p95": 27.5,
-            "max": 30.3
+            "min": 3.6,
+            "median": 5.2,
+            "p95": 27.7,
+            "max": 30.8
           },
           "statuses": {
             "200": 30
@@ -121,35 +123,35 @@
         "longest_url": {
           "chars": 2048,
           "ms": {
-            "min": 16.1,
-            "median": 19.7,
-            "p95": 44.8,
-            "max": 132.6
+            "min": 13.9,
+            "median": 27.8,
+            "p95": 78.6,
+            "max": 94.4
           },
           "statuses": {
             "200": 30
           }
         },
         "ratio_longest_to_short": {
-          "median": 1.3,
-          "p95": 1.6
+          "median": 5.3,
+          "p95": 2.8
         }
       },
       "bodies": [
         {
           "bytes": 9216,
           "status": 413,
-          "ms": 25.3
+          "ms": 1.5
         },
         {
           "bytes": 1048576,
           "status": 413,
-          "ms": 14.9
+          "ms": 13.6
         },
         {
           "bytes": 10485760,
           "status": 413,
-          "ms": 1.7
+          "ms": 13.3
         }
       ],
       "per_repeat": [
@@ -158,165 +160,13 @@
             "slow": {
               "status": 200,
               "retry_after": null,
-              "ms": 61.0
+              "ms": 168.0
             },
             "health": [
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 3.5
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 12.4
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 2.8
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.3
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.1
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.2
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.2
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.2
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.2
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.2
-              }
-            ],
-            "probe": {
-              "status": 200,
-              "retry_after": null,
-              "ms": 17.0
-            }
-          },
-          "flood": {
-            "requests": 100,
-            "status_counts": {
-              "200": 35,
-              "503": 65
-            },
-            "ms_by_status": {
-              "200": {
-                "min": 69.6,
-                "median": 463.0,
-                "p95": 761.3,
-                "max": 903.0
-              },
-              "503": {
-                "min": 53.7,
-                "median": 349.5,
-                "p95": 729.4,
-                "max": 764.0
-              }
-            },
-            "retry_after_on_503": [
-              1
-            ],
-            "health": [
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 667.2
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 144.8
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 13.4
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 15.0
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 16.1
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 2.3
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.4
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 27.2
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 2.2
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 13.2
-              }
-            ],
-            "probe": {
-              "status": 200,
-              "retry_after": null,
-              "ms": 813.0
-            }
-          }
-        },
-        {
-          "slow": {
-            "slow": {
-              "status": 200,
-              "retry_after": null,
-              "ms": 16.9
-            },
-            "health": [
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 4.0
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 17.2
+                "ms": 68.2
               },
               {
                 "status": 200,
@@ -326,63 +176,68 @@
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 15.1
+                "ms": 23.4
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 15.9
+                "ms": 15.0
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 2.0
+                "ms": 15.7
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 1.5
+                "ms": 15.5
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 1.5
+                "ms": 15.3
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 26.4
+                "ms": 1.9
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 2.2
+                "ms": 1.8
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 1.6
               }
             ],
             "probe": {
               "status": 200,
               "retry_after": null,
-              "ms": 20.4
+              "ms": 83.4
             }
           },
           "flood": {
             "requests": 100,
             "status_counts": {
-              "200": 38,
-              "503": 62
+              "200": 40,
+              "503": 60
             },
             "ms_by_status": {
               "200": {
-                "min": 31.2,
-                "median": 400.9,
-                "p95": 863.4,
-                "max": 887.7
+                "min": 64.9,
+                "median": 575.5,
+                "p95": 990.3,
+                "max": 1031.0
               },
               "503": {
-                "min": 50.3,
-                "median": 332.4,
-                "p95": 824.7,
-                "max": 852.7
+                "min": 66.1,
+                "median": 420.1,
+                "p95": 944.5,
+                "max": 985.5
               }
             },
             "retry_after_on_503": [
@@ -392,22 +247,78 @@
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 758.6
+                "ms": 887.0
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 33.9
+                "ms": 44.0
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 22.7
+                "ms": 4.9
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 2.0
+                "ms": 3.0
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.2
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 24.5
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.5
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.6
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 25.4
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 14.7
+              }
+            ],
+            "probe": {
+              "status": 503,
+              "retry_after": 1,
+              "ms": 931.0
+            }
+          }
+        },
+        {
+          "slow": {
+            "slow": {
+              "status": 200,
+              "retry_after": null,
+              "ms": 109.6
+            },
+            "health": [
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 10.1
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 18.2
               },
               {
                 "status": 200,
@@ -427,43 +338,12 @@
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 23.5
+                "ms": 19.4
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 15.1
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 2.2
-              }
-            ],
-            "probe": {
-              "status": 200,
-              "retry_after": null,
-              "ms": 792.5
-            }
-          }
-        },
-        {
-          "slow": {
-            "slow": {
-              "status": 200,
-              "retry_after": null,
-              "ms": 29.8
-            },
-            "health": [
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 20.0
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 15.5
+                "ms": 15.3
               },
               {
                 "status": 200,
@@ -473,63 +353,38 @@
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 2.2
+                "ms": 2.5
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 1.8
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.8
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.8
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 23.0
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 15.5
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 15.4
+                "ms": 1.6
               }
             ],
             "probe": {
               "status": 200,
               "retry_after": null,
-              "ms": 17.4
+              "ms": 28.4
             }
           },
           "flood": {
             "requests": 100,
             "status_counts": {
-              "200": 37,
-              "503": 63
+              "200": 40,
+              "503": 60
             },
             "ms_by_status": {
               "200": {
-                "min": 54.5,
-                "median": 455.1,
-                "p95": 708.4,
-                "max": 716.1
+                "min": 73.0,
+                "median": 659.3,
+                "p95": 1073.2,
+                "max": 1187.1
               },
               "503": {
-                "min": 32.7,
-                "median": 389.7,
-                "p95": 683.5,
-                "max": 708.1
+                "min": 20.8,
+                "median": 510.8,
+                "p95": 1032.4,
+                "max": 1068.8
               }
             },
             "retry_after_on_503": [
@@ -539,22 +394,83 @@
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 589.0
+                "ms": 970.8
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 28.0
+                "ms": 116.8
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 23.9
+                "ms": 1.9
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 15.0
+                "ms": 18.8
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.5
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 13.0
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.2
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 13.1
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 16.5
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 13.8
+              }
+            ],
+            "probe": {
+              "status": 503,
+              "retry_after": 1,
+              "ms": 1070.8
+            }
+          }
+        },
+        {
+          "slow": {
+            "slow": {
+              "status": 200,
+              "retry_after": null,
+              "ms": 18.5
+            },
+            "health": [
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 3.3
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 19.9
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 14.7
               },
               {
                 "status": 200,
@@ -569,39 +485,69 @@
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 1.5
+                "ms": 2.1
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 1.2
+                "ms": 2.2
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 1.4
+                "ms": 24.1
               },
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 1.3
+                "ms": 2.0
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.0
               }
             ],
             "probe": {
               "status": 200,
               "retry_after": null,
-              "ms": 630.1
+              "ms": 20.7
             }
-          }
-        },
-        {
-          "slow": {
-            "slow": {
-              "status": 200,
-              "retry_after": null,
-              "ms": 35.3
+          },
+          "flood": {
+            "requests": 100,
+            "status_counts": {
+              "200": 41,
+              "503": 59
             },
+            "ms_by_status": {
+              "200": {
+                "min": 55.7,
+                "median": 726.2,
+                "p95": 1331.9,
+                "max": 1368.0
+              },
+              "503": {
+                "min": 35.3,
+                "median": 684.2,
+                "p95": 1321.2,
+                "max": 1346.6
+              }
+            },
+            "retry_after_on_503": [
+              1
+            ],
             "health": [
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 1240.9
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 40.6
+              },
               {
                 "status": 200,
                 "retry_after": null,
@@ -610,7 +556,93 @@
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 13.9
+                "ms": 19.2
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 15.0
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 15.7
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 15.6
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.4
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 13.5
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.6
+              }
+            ],
+            "probe": {
+              "status": 200,
+              "retry_after": null,
+              "ms": 1282.9
+            }
+          }
+        },
+        {
+          "slow": {
+            "slow": {
+              "status": 200,
+              "retry_after": null,
+              "ms": 18.4
+            },
+            "health": [
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 3.3
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 8.4
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 11.4
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.0
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 26.3
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 14.9
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.2
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.2
               },
               {
                 "status": 200,
@@ -620,7 +652,215 @@
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 3.2
+                "ms": 1.9
+              }
+            ],
+            "probe": {
+              "status": 200,
+              "retry_after": null,
+              "ms": 22.4
+            }
+          },
+          "flood": {
+            "requests": 100,
+            "status_counts": {
+              "200": 40,
+              "503": 60
+            },
+            "ms_by_status": {
+              "200": {
+                "min": 62.5,
+                "median": 588.2,
+                "p95": 1120.8,
+                "max": 1151.4
+              },
+              "503": {
+                "min": 36.1,
+                "median": 562.5,
+                "p95": 1008.0,
+                "max": 1120.8
+              }
+            },
+            "retry_after_on_503": [
+              1
+            ],
+            "health": [
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 1021.8
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 32.6
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.4
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 1.8
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 1.6
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 14.7
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.1
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 1.7
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 1.4
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 1.6
+              }
+            ],
+            "probe": {
+              "status": 200,
+              "retry_after": null,
+              "ms": 1055.4
+            }
+          }
+        },
+        {
+          "slow": {
+            "slow": {
+              "status": 200,
+              "retry_after": null,
+              "ms": 44.0
+            },
+            "health": [
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 3.8
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 18.5
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.4
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 1.7
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 1.4
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 20.7
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 15.3
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 16.1
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.5
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 12.5
+              }
+            ],
+            "probe": {
+              "status": 200,
+              "retry_after": null,
+              "ms": 22.3
+            }
+          },
+          "flood": {
+            "requests": 100,
+            "status_counts": {
+              "200": 42,
+              "503": 58
+            },
+            "ms_by_status": {
+              "200": {
+                "min": 54.7,
+                "median": 577.2,
+                "p95": 1055.0,
+                "max": 1086.6
+              },
+              "503": {
+                "min": 34.3,
+                "median": 557.5,
+                "p95": 1050.6,
+                "max": 1070.4
+              }
+            },
+            "retry_after_on_503": [
+              1
+            ],
+            "health": [
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 955.2
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 35.8
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.5
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 21.4
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 16.1
+              },
+              {
+                "status": 200,
+                "retry_after": null,
+                "ms": 2.5
               },
               {
                 "status": 200,
@@ -640,251 +880,13 @@
               {
                 "status": 200,
                 "retry_after": null,
-                "ms": 1.5
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.3
-              },
-              {
-                "status": 200,
-                "retry_after": null,
                 "ms": 1.3
               }
             ],
             "probe": {
-              "status": 200,
-              "retry_after": null,
-              "ms": 16.8
-            }
-          },
-          "flood": {
-            "requests": 100,
-            "status_counts": {
-              "200": 37,
-              "503": 63
-            },
-            "ms_by_status": {
-              "200": {
-                "min": 44.9,
-                "median": 412.0,
-                "p95": 794.5,
-                "max": 800.1
-              },
-              "503": {
-                "min": 29.9,
-                "median": 322.2,
-                "p95": 749.7,
-                "max": 778.5
-              }
-            },
-            "retry_after_on_503": [
-              1
-            ],
-            "health": [
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 671.3
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 30.0
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 16.4
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 13.3
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 15.1
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 15.5
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.9
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 13.7
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 15.3
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 15.5
-              }
-            ],
-            "probe": {
-              "status": 200,
-              "retry_after": null,
-              "ms": 716.9
-            }
-          }
-        },
-        {
-          "slow": {
-            "slow": {
-              "status": 200,
-              "retry_after": null,
-              "ms": 29.8
-            },
-            "health": [
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 3.6
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 17.5
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 15.9
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 15.8
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.9
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 13.1
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 16.1
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.9
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.7
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.5
-              }
-            ],
-            "probe": {
-              "status": 200,
-              "retry_after": null,
-              "ms": 18.9
-            }
-          },
-          "flood": {
-            "requests": 100,
-            "status_counts": {
-              "200": 40,
-              "503": 60
-            },
-            "ms_by_status": {
-              "200": {
-                "min": 48.4,
-                "median": 477.3,
-                "p95": 887.3,
-                "max": 909.9
-              },
-              "503": {
-                "min": 15.8,
-                "median": 387.5,
-                "p95": 850.8,
-                "max": 887.2
-              }
-            },
-            "retry_after_on_503": [
-              1
-            ],
-            "health": [
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 790.6
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 33.3
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 22.5
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.9
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.8
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.8
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 2.3
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 1.8
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 21.1
-              },
-              {
-                "status": 200,
-                "retry_after": null,
-                "ms": 2.2
-              }
-            ],
-            "probe": {
-              "status": 200,
-              "retry_after": null,
-              "ms": 825.0
+              "status": 503,
+              "retry_after": 1,
+              "ms": 988.8
             }
           }
         }
