@@ -272,6 +272,51 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
   | 5 spoofed `X-Forwarded-For` that got through | 5 (no limit) | 0 |
   | after sleeping `Retry-After` | – | 200 |
   | model runs / requests sent | 80 / 85 | 18 / 86 |
+- **Denial of service before/after** (503 cap and body limit, localhost only, capped):
+
+  ```bash
+  # terminal 1, BEFORE: cap and body limit off, 1 s demo delay, limiter off
+  #   PowerShell: $env:RATE_LIMIT_ENABLED="false"; $env:CONCURRENCY_CAP_ENABLED="false"
+  #               $env:BODY_LIMIT_ENABLED="false"; $env:DEMO_ANALYZE_DELAY_MS="1000"
+  #   bash:       export RATE_LIMIT_ENABLED=false CONCURRENCY_CAP_ENABLED=false
+  #               export BODY_LIMIT_ENABLED=false DEMO_ANALYZE_DELAY_MS=1000
+  uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers --no-server-header --no-access-log
+  # terminal 2
+  python scripts/security/dos_before_after.py --phase before
+  # terminal 1: stop, unset CONCURRENCY_CAP_ENABLED and BODY_LIMIT_ENABLED (keep the other two), start again
+  python scripts/security/dos_before_after.py --phase after
+  ```
+
+  `DEMO_ANALYZE_DELAY_MS=1000` makes every `/analyze` take about 1 s, a stand-in for an
+  expensive model call. The limiter is off in both phases, so only the cap and the body
+  limit are measured. Each phase repeats two steps (`--repeats`, default 5, at most 10):
+  one slow `/analyze` while 10 `/health` calls and a second `/analyze` probe are timed,
+  then a flood of 100 concurrent `/analyze` (released together, at most 100) with 10
+  `/health` calls and one `/analyze` probe timed during it. Once per phase it sends valid
+  JSON padded to 9 KB, 1 MB and 10 MB. Before must show no 503. After must show 503s,
+  each with `Retry-After`, a median 503 under 0.5 s, every `/health` during the flood
+  under 0.5 s and 413 for all three bodies. Both phases go into
+  `evidence/dos_before_after.json`.
+
+  One real run (2026-11-02, 5 repeats; ms as median / p95 / max):
+
+  | | before (cap and body limit off) | after (defaults, cap 4) |
+  |---|---|---|
+  | one slow `/analyze` | 1025 / 1120 / 1120 ms | 1026 / 1070 / 1070 ms |
+  | beside it: `/health` | 2 / 24 / 26 ms | 3 / 25 / 28 ms |
+  | beside it: `/analyze` probe | 1011 / 1026 / 1026 ms, 5 × 200 | 1013 / 1015 / 1015 ms, 5 × 200 |
+  | flood of 5 × 100: 200 / 503 | 500 / 0 | 20 / 480 |
+  | flood: time to 200 | 2297 / 3397 / 3449 ms | 1051 / 1082 / 1082 ms |
+  | flood: time to 503 | - | 136 / 267 / 346 ms, `Retry-After: 1` |
+  | during flood: `/health` | 3 / 26 / 83 ms | 3 / 128 / 247 ms |
+  | during flood: `/analyze` probe | 3293 / 3348 / 3348 ms, 5 × 200 | 134 / 252 / 252 ms, 5 × 503 |
+  | 9 KB / 1 MB / 10 MB body | 200 / 200 / 200, about 1.2 s each | 413 / 413 / 413 in 25 / 16 / 2 ms |
+
+  Before, all 100 requests were accepted and queued: a 1 s analysis took up to 3.4 s, and
+  every oversized body was read in full and analysed. After, 4 requests at a time ran in
+  about 1 s and the rest were refused in a fraction of a second, so a new request learns
+  at once to retry instead of waiting. In both phases `/health` stayed well under 0.5 s,
+  because the slow work runs in worker threads, not on the event loop.
 - **Dependencies:** `pip-audit -r requirements.txt -r requirements-dev.txt` found no known
   vulnerabilities on 2026-10-17 (`evidence/pip_audit.txt`).
 - **Worst case per request:** a 2048-character URL takes about 30-70 ms on the test laptop,
