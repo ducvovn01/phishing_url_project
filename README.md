@@ -226,21 +226,38 @@ The training pipeline and its commands are in
 └── README.md
 ```
 
-## Team and contributions
+## Team
 
 | Name | Student ID | Role |
 |---|---|---|
 | Quang Phu Duc Vo | 105739480 | Team leader; model and backend (the FastAPI service, the per-client rate limiter) |
-| Vinh Nghiem | 105282913 | Frontend; security evidence, misconfiguration review, threat model and README (took over the cybersecurity work) |
-| Lachlan Rouse | 105348886 | Cybersecurity role |
+| Vinh Nghiem | 105282913 | Frontend; project management (WBS, timeline, risk register) |
+| Lachlan Rouse | 105348886 | Cybersecurity (threat model, security defences and evidence) |
 
 Tutor: Jianwen. Group 2, Session 11.
 
-TODO(team): check each role above and describe what each member contributed.
-
 ## Use of generative AI
 
-TODO(team): list the tools used, what they were used for, and how the output was checked.
+This statement is made on behalf of the whole team, and it applies to all three members.
+
+Tools: Claude Code and Claude (Anthropic).
+
+What they were used for:
+
+- Code: Claude Code helped write parts of the backend, the frontend, the tests and the security
+  evidence scripts. We gave it code, test results and error messages and asked for specific
+  changes. It was told not to run git commands.
+- Documents and messages: Claude helped draft the documents in `docs/` and this README from the
+  files and evidence in the repository, and drafted code review comments, pull request
+  descriptions and messages to teammates.
+
+How the output was checked:
+
+- The team read every diff, ran the tests, and committed every change by hand.
+- For each code review, every issue was checked in the code before it was raised, and a team
+  member wrote and posted the reviews.
+- The numbers in the documents come from the evidence files in `backend/evidence/` and
+  `frontend/evidence/`.
 
 ## References
 
@@ -259,7 +276,7 @@ TODO(team): list the tools used, what they were used for, and how the output was
 - Varoquaux, G. (n.d.) *joblib* (version 1.6.0) [Computer program]. Available at: https://joblib.readthedocs.io (Accessed: November 2026).
 - You, E. (n.d.) *Vite* (version 8.3.4) [Computer program]. Available at: https://vite.dev/ (Accessed: November 2026).
 - Zabriskie, M. (n.d.) *axios* (version 1.20.0) [Computer program]. Available at: https://axios.rest/ (Accessed: November 2026).
-- ZAP (n.d.) *ZAP (Zed Attack Proxy)* (version 2.17.0) [Computer program]. Available at: https://www.zaproxy.org/ (Accessed: November 2026).
+- ZAP Dev Team (2026) *ZAP (Zed Attack Proxy)* (version 2.17.0) [Computer program]. Checkmarx. Available at: https://www.zaproxy.org/ (Accessed: November 2026).
 
 ## Before submitting
 
