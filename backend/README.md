@@ -364,6 +364,43 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
   inference is CPU-bound Python, so worker threads compete with the event loop for the
   GIL, and the event loop also parses all 100 requests. The delay-mode result does not
   carry over to real inference.
+- **Concurrency cap sweep with real inference.** Four real-mode runs on 2026-11-02, each
+  against a fresh server (limiter off, no demo delay), the default flood (100 concurrent,
+  5 repeats), Python 3.14.7 on Windows, load generator and server on the same machine:
+
+  ```bash
+  # no cap: RATE_LIMIT_ENABLED=false CONCURRENCY_CAP_ENABLED=false BODY_LIMIT_ENABLED=false
+  python scripts/security/dos_before_after.py --phase before --expensive real --json-out evidence/dos_cap_sweep_real_before.json --label "no cap"
+  # cap N: RATE_LIMIT_ENABLED=false ANALYZE_MAX_CONCURRENCY=N (N = 1, 2, 4)
+  python scripts/security/dos_before_after.py --phase after --expensive real --json-out evidence/dos_cap_sweep_real_capN.json --label "cap N"
+  ```
+
+  The cap of each run is in its `label`. The `server_settings` field in those files is
+  the script's fixed expectation and shows `ANALYZE_MAX_CONCURRENCY: 4` for every after
+  run, including cap 1 and cap 2.
+
+  | flood of 5 × 100 (ms as median / p95 / max) | no cap | cap 1 | cap 2 | cap 4 |
+  |---|---|---|---|---|
+  | 200 / 503 | 500 / 0 | 97 / 403 | 198 / 302 | 353 / 147 |
+  | time to 503 (median / p95) | - | 289 / 549 | 455 / 868 | 220 / 1210 |
+  | time to 200 (median / p95) | 1140 / 2261 | 324 / 578 | 516 / 914 | 771 / 1400 |
+  | `/health` during the flood | 2 / 2114 / 2277 | 7 / 479 / 503 | 14 / 765 / 997 | 14 / 1191 / 1368 |
+  | `/analyze` probe during the flood | 2220 / 2397 / 2397, 5 × 200 | 500 / 520 / 520, 2 × 200, 3 × 503 | 815 / 1035 / 1035, 2 × 200, 3 × 503 | 1308 / 1449 / 1449, 5 × 200 |
+  | result | PASS | PASS | FAIL: `/health` p95 765 ms | FAIL: `/health` p95 1191 ms |
+
+  "no cap" is a before phase, so its PASS only means the run was sound (no 503); its
+  `/health` p95 of 2114 ms is the undefended baseline. In these runs a smaller cap gave
+  a more responsive server: the `/health` p95 fell from 2114 ms (no cap) to 1191, 765
+  and 479 ms (cap 4, 2, 1), and the time to 200 fell with it. The price is fewer
+  accepted requests: 353, 198 and 97 of 500. Only cap 1 met the 0.5 s `/health` rule,
+  and only just (p95 479 ms, max 503 ms). The 503s were not always fast: their p95 was
+  549 to 1210 ms. Each figure comes from one run of 5 repeats; the earlier real-mode
+  runs above show that the 503 timing in particular varies between runs.
+
+  Hypotheses, not tested here: (1) the inference threads and the event loop contend for
+  the interpreter lock (GIL), so fewer inference threads leave the event loop more time;
+  (2) the load generator's 100 threads share the CPU with the server, which may inflate
+  every latency compared with a separate client machine.
 - **Dependencies:** `pip-audit -r requirements.txt -r requirements-dev.txt` found no known
   vulnerabilities on 2026-10-17 (`evidence/pip_audit.txt`).
 - **Worst case per request:** a 2048-character URL takes about 30-70 ms on the test laptop,

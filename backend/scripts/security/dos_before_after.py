@@ -470,6 +470,8 @@ def main() -> None:
                         help="JSON file both phases are recorded in (default: "
                              "evidence/dos_before_after.json, or dos_before_after_real.json "
                              "with --expensive real)")
+    parser.add_argument("--label", default=None,
+                        help="short name for this run, stored in the JSON (e.g. \"cap 1\")")
     args = parser.parse_args()
 
     target = urlsplit(args.base_url)
@@ -485,7 +487,10 @@ def main() -> None:
 
     args.json_out = args.json_out or DEFAULT_OUT[args.expensive]
 
-    result = run_phase(args.phase, args.expensive, host, port, args.repeats, args.flood)
+    result = {"label": args.label,
+              **run_phase(args.phase, args.expensive, host, port, args.repeats, args.flood)}
+    if args.label:
+        print(f"label: {args.label}")
     show_phase(args.phase, result)
 
     try:
