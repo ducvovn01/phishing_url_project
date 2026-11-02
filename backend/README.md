@@ -454,5 +454,73 @@ Known limits (from FINDINGS.md):
   parity tests use `ModelService.analyze` without the defence) and the n-gram signals
   cannot be highlighted in the URL.
 
+### Detection evasion before and after
+
+`scripts/security/evasion_before_after.py` attacks the running API (localhost only,
+requests one at a time, counts capped) with the experiment's look-alike variants from
+`experiments/results/cases.csv`, once with the defence off and once with it on:
+
+```bash
+# terminal 1, BEFORE: defence off, limiter off
+#   PowerShell: $env:RATE_LIMIT_ENABLED="false"; $env:HOMOGLYPH_DEFENCE="false"
+#   bash:       export RATE_LIMIT_ENABLED=false HOMOGLYPH_DEFENCE=false
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers --no-server-header --no-access-log
+# terminal 2
+python scripts/security/evasion_before_after.py --phase before
+# terminal 1: stop, unset HOMOGLYPH_DEFENCE (keep RATE_LIMIT_ENABLED=false), start again
+python scripts/security/evasion_before_after.py --phase after
+```
+
+Each phase runs 10 repeats (`--repeats`, at most 20). Repeat r draws 100 distinct
+category C bases with seed r (the same in both phases) and adds all 16 category A bases,
+then sends all 579 of their variants. Only bases the undefended model flags as phishing
+are used. The evasion rate is the share of variants labelled legitimate. The adaptive
+attacker rate is the share of bases for which at least one of the five strategies gets
+through. Each phase also sends 300 legitimate URLs from `experiments/results/benign.csv`
+(all 60 non-ASCII ones and 240 seeded ASCII ones). Five of the non-ASCII ones contain
+control characters, which the API's URL policy refuses with 422, so they are reported as
+refused and the false positive rate is over the 295 scored. The run passes when it is
+sound: only the expected statuses, the server detected in the expected mode (through the
+`cyrillic_one` variant of `A01`, which scores exactly like its base only when folded), and
+the same samples in both phases. It does not require the defence to help. Results go to
+`evidence/evasion_before_after.json`.
+
+One real run (2026-11-02, Python 3.14.7 on Windows; rates as mean (min to max) over the
+10 repeats). Both phases PASS:
+
+| | before (defence off) | after (defence on) |
+|---|---|---|
+| evasion, all variants | 0.60% (0.17 to 1.21) | 0.05% (0.00 to 0.17) |
+| cyrillic_one | 0.00% (0.00 to 0.00) | 0.00% (0.00 to 0.00) |
+| cyrillic_all | 0.26% (0.00 to 0.86) | 0.00% (0.00 to 0.00) |
+| greek_mixed | 2.00% (0.00 to 4.35) | 0.00% (0.00 to 0.00) |
+| fullwidth | 0.52% (0.00 to 0.86) | 0.00% (0.00 to 0.00) |
+| dot_diacritics_uncovered | 0.26% (0.00 to 0.86) | 0.26% (0.00 to 0.86) |
+| adaptive attacker (bases with a way through) | 2.24% (0.86 to 4.31) | 0.26% (0.00 to 0.86) |
+| benign false positives | 20 of 295 (6.78%), 1 non-ASCII | 20 of 295 (6.78%), 1 non-ASCII |
+| latency, attack, median / p95 | 8.53 / 31.1 ms | 7.33 / 31.07 ms |
+| latency, benign, median / p95 | 6.09 / 29.22 ms | 4.16 / 27.85 ms |
+
+Paired per repeat (before minus after): the evasion rate fell by 0.56 percentage points
+on average (0.17 to 1.21) and the defence helped in 10 of 10 repeats, never hurt. The
+adaptive attacker rate fell by 1.98 points on average and the defence helped in 9 repeats
+and was equal in 1.
+
+What this means:
+
+- The baseline model is already hard to evade with look-alike characters
+  (`experiments/FINDINGS.md`): without the defence only 0.60% of variants got through, so
+  the room for improvement is small. The defence closes what remains for the strategies it
+  covers (Cyrillic, Greek, fullwidth), and against an attacker who tries all five
+  strategies it cut the bases with a way through from 2.24% to 0.26%.
+- Its cost, measured here, is nil in this run: the benign false positive count did not
+  change (20 of 295 in both phases), and latency did not rise (the differences are
+  within run-to-run noise on one laptop).
+- Its limits, from FINDINGS.md: letters outside the table in `normalization.py` are not
+  folded, and diacritic look-alikes (`ạ`, `ọ`) are left alone on purpose; the
+  `dot_diacritics_uncovered` row is the same in both phases for that reason.
+- The repeats are not independent samples: they draw from the same 200 C bases and reuse
+  all 16 A bases, so the spread over repeats shows sampling variation, not new attacks.
+
 Reproduce with `python experiments/homoglyph_evasion.py` (needs `requirements-dev.txt`
 and `data/processed/features.parquet`).
