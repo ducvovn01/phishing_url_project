@@ -51,6 +51,14 @@ REAL MODE (DEMO_ANALYZE_DELAY_MS must NOT be set in either phase)
     # start the server again, then in terminal 2:
     .venv/Scripts/python scripts/security/dos_before_after.py --phase after --expensive real
 
+CAP SWEEP: --max-concurrency N records the server's ANALYZE_MAX_CONCURRENCY (default 4) in
+server_settings for an after phase. It does not change the server, so pass the same N the
+server was started with. --label names the run and --json-out keeps each run in its own file:
+
+    # server: RATE_LIMIT_ENABLED=false ANALYZE_MAX_CONCURRENCY=1 (no demo delay)
+    .venv/Scripts/python scripts/security/dos_before_after.py --phase after --expensive real \
+        --max-concurrency 1 --label "cap 1" --json-out evidence/dos_cap_sweep_real_cap1.json
+
 Each phase does, per repeat (--repeats, default 5, at most 10):
   1. slow   one expensive /analyze while 10 /health calls and a second expensive
             /analyze probe are timed: other requests must still be answered
@@ -269,8 +277,11 @@ def summarise(rows: list[dict]) -> dict:
 
 
 def run_phase(phase: str, mode: str, host: str, port: int, n_repeats: int,
-              n_flood: int) -> dict:
+              n_flood: int, max_concurrency: int = 4) -> dict:
     body = EXPENSIVE_BODY[mode]
+    server_settings = dict(SETTINGS[mode][phase])
+    if "ANALYZE_MAX_CONCURRENCY" in server_settings:  # after phases only
+        server_settings["ANALYZE_MAX_CONCURRENCY"] = max_concurrency
     repeats, flood_rows = [], []
     for _ in range(n_repeats):
         slow = slow_step(host, port, body)
@@ -337,7 +348,7 @@ def run_phase(phase: str, mode: str, host: str, port: int, n_repeats: int,
         "port": port,
         "expensive": mode,
         "environment": environment(),
-        "server_settings": SETTINGS[mode][phase],
+        "server_settings": server_settings,
         "repeats": n_repeats,
         "flood_size": n_flood,
         "passed": not problems,
@@ -472,6 +483,10 @@ def main() -> None:
                              "with --expensive real)")
     parser.add_argument("--label", default=None,
                         help="short name for this run, stored in the JSON (e.g. \"cap 1\")")
+    parser.add_argument("--max-concurrency", type=int, default=4,
+                        help="the server's ANALYZE_MAX_CONCURRENCY, recorded for after phases "
+                             "only; it does not change the server (1 to 64, default "
+                             "%(default)s)")
     args = parser.parse_args()
 
     target = urlsplit(args.base_url)
@@ -481,6 +496,8 @@ def main() -> None:
         sys.exit(f"refusing: --repeats must be between 1 and {MAX_REPEATS}")
     if not 1 <= args.flood <= MAX_FLOOD:
         sys.exit(f"refusing: --flood must be between 1 and {MAX_FLOOD}")
+    if not 1 <= args.max_concurrency <= 64:
+        sys.exit("refusing: --max-concurrency must be between 1 and 64")
     host, port = target.hostname, target.port or 80
     if request(host, port, "GET", "/health", timeout=5)["status"] != 200:
         sys.exit(f"no healthy server at {args.base_url}: start it first (see --help)")
@@ -488,7 +505,8 @@ def main() -> None:
     args.json_out = args.json_out or DEFAULT_OUT[args.expensive]
 
     result = {"label": args.label,
-              **run_phase(args.phase, args.expensive, host, port, args.repeats, args.flood)}
+              **run_phase(args.phase, args.expensive, host, port, args.repeats, args.flood,
+                          args.max_concurrency)}
     if args.label:
         print(f"label: {args.label}")
     show_phase(args.phase, result)

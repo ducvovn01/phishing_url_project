@@ -366,36 +366,36 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
   carry over to real inference.
 - **Concurrency cap sweep with real inference.** Four real-mode runs on 2026-11-02, each
   against a fresh server (limiter off, no demo delay), the default flood (100 concurrent,
-  5 repeats), Python 3.14.7 on Windows, load generator and server on the same machine:
+  5 repeats), Python 3.14.7 (`backend/.venv`) on Windows, load generator and server on
+  the same machine:
 
   ```bash
   # no cap: RATE_LIMIT_ENABLED=false CONCURRENCY_CAP_ENABLED=false BODY_LIMIT_ENABLED=false
   python scripts/security/dos_before_after.py --phase before --expensive real --json-out evidence/dos_cap_sweep_real_before.json --label "no cap"
   # cap N: RATE_LIMIT_ENABLED=false ANALYZE_MAX_CONCURRENCY=N (N = 1, 2, 4)
-  python scripts/security/dos_before_after.py --phase after --expensive real --json-out evidence/dos_cap_sweep_real_capN.json --label "cap N"
+  python scripts/security/dos_before_after.py --phase after --expensive real --max-concurrency N --json-out evidence/dos_cap_sweep_real_capN.json --label "cap N"
   ```
 
-  The cap of each run is in its `label`. The `server_settings` field in those files is
-  the script's fixed expectation and shows `ANALYZE_MAX_CONCURRENCY: 4` for every after
-  run, including cap 1 and cap 2.
+  `--max-concurrency` only records the cap in the file's `server_settings`; it must match
+  the `ANALYZE_MAX_CONCURRENCY` the server was started with.
 
   | flood of 5 × 100 (ms as median / p95 / max) | no cap | cap 1 | cap 2 | cap 4 |
   |---|---|---|---|---|
-  | 200 / 503 | 500 / 0 | 97 / 403 | 198 / 302 | 353 / 147 |
-  | time to 503 (median / p95) | - | 289 / 549 | 455 / 868 | 220 / 1210 |
-  | time to 200 (median / p95) | 1140 / 2261 | 324 / 578 | 516 / 914 | 771 / 1400 |
-  | `/health` during the flood | 2 / 2114 / 2277 | 7 / 479 / 503 | 14 / 765 / 997 | 14 / 1191 / 1368 |
-  | `/analyze` probe during the flood | 2220 / 2397 / 2397, 5 × 200 | 500 / 520 / 520, 2 × 200, 3 × 503 | 815 / 1035 / 1035, 2 × 200, 3 × 503 | 1308 / 1449 / 1449, 5 × 200 |
-  | result | PASS | PASS | FAIL: `/health` p95 765 ms | FAIL: `/health` p95 1191 ms |
+  | 200 / 503 | 500 / 0 | 98 / 402 | 187 / 313 | 353 / 147 |
+  | time to 503 (median / p95) | - | 291 / 656 | 350 / 785 | 196 / 1272 |
+  | time to 200 (median / p95) | 1039 / 1920 | 359 / 692 | 426 / 824 | 755 / 1372 |
+  | `/health` during the flood | 12 / 1816 / 1884 | 9 / 562 / 670 | 15 / 671 / 791 | 14 / 1243 / 1355 |
+  | `/analyze` probe during the flood | 1921 / 2017 / 2017, 5 × 200 | 584 / 674 / 674, 5 × 503 | 792 / 825 / 825, 5 × 200 | 1289 / 1543 / 1543, 4 × 200, 1 × 503 |
+  | result | PASS | FAIL: `/health` p95 562 ms | FAIL: `/health` p95 671 ms | FAIL: `/health` p95 1243 ms |
 
   "no cap" is a before phase, so its PASS only means the run was sound (no 503); its
-  `/health` p95 of 2114 ms is the undefended baseline. In these runs a smaller cap gave
-  a more responsive server: the `/health` p95 fell from 2114 ms (no cap) to 1191, 765
-  and 479 ms (cap 4, 2, 1), and the time to 200 fell with it. The price is fewer
-  accepted requests: 353, 198 and 97 of 500. Only cap 1 met the 0.5 s `/health` rule,
-  and only just (p95 479 ms, max 503 ms). The 503s were not always fast: their p95 was
-  549 to 1210 ms. Each figure comes from one run of 5 repeats; the earlier real-mode
-  runs above show that the 503 timing in particular varies between runs.
+  `/health` p95 of 1816 ms is the undefended baseline. In these runs a smaller cap gave
+  a more responsive server: the `/health` p95 fell from 1816 ms (no cap) to 1243, 671
+  and 562 ms (cap 4, 2, 1), and the time to 200 fell with it. The price is fewer
+  accepted requests: 353, 187 and 98 of 500. No cap size met the 0.5 s `/health` rule;
+  cap 1 came closest. The 503s were not always fast: their p95 was 656 to 1272 ms. Each
+  figure comes from one run of 5 repeats; the earlier real-mode runs above show that
+  the 503 timing in particular varies between runs.
 
   Hypotheses, not tested here: (1) the inference threads and the event loop contend for
   the interpreter lock (GIL), so fewer inference threads leave the event loop more time;
