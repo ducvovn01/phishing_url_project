@@ -1,0 +1,15 @@
+# npm audit (npm 11.19.0, Node v26.8.1), run 2026-11-02 on Windows 11
+# command (from frontend/): npm audit
+# exit code: 1 (vulnerabilities found)
+# npm audit report
+
+follow-redirects  1.16.0 - 1.16.1
+Severity: high
+follow-redirects: Cross-realm sensitiveHeaders arrays are discarded and custom credentials can follow redirects - https://github.com/advisories/GHSA-mrwp-f3q8-3g9p
+fix available via `npm audit fix`
+node_modules/follow-redirects
+
+1 high severity vulnerability
+
+To address all issues, run:
+  npm audit fix

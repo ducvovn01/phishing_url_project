@@ -1,3 +1,4 @@
-# pip-audit 2.10.1, run 2026-10-17 on Windows 11 / Python 3.12.0
-# command: pip-audit -r requirements.txt -r requirements-dev.txt
+# pip-audit 2.10.1, run 2026-11-02 on Windows 11 / Python 3.14.7 (backend/.venv; pip-audit installed into this environment for the run)
+# command (from backend/): pip-audit -r requirements.txt -r requirements-dev.txt
+# exit code: 0
 No known vulnerabilities found
