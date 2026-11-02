@@ -43,6 +43,9 @@ class Settings:
     # Demo only: every /analyze sleeps this long in its worker thread while holding its
     # concurrency slot, a stand-in for an expensive model call.
     demo_analyze_delay_ms: int = 0
+    # Detection evasion defence (P2, experiments/FINDINGS.md): score the folded look-alike
+    # text instead of the raw one. Turning it off is for the before/after demo only.
+    homoglyph_defence: bool = True
 
 
 def _parse_origins(raw: str) -> tuple[str, ...]:
@@ -107,4 +110,6 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
     if "DEMO_ANALYZE_DELAY_MS" in env:
         kwargs["demo_analyze_delay_ms"] = _parse_int("DEMO_ANALYZE_DELAY_MS",
                                                      env["DEMO_ANALYZE_DELAY_MS"], 0, 5000)
+    if "HOMOGLYPH_DEFENCE" in env:
+        kwargs["homoglyph_defence"] = _parse_bool("HOMOGLYPH_DEFENCE", env["HOMOGLYPH_DEFENCE"])
     return Settings(**{**settings.__dict__, **kwargs})

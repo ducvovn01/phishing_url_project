@@ -55,6 +55,7 @@ of this service, so the socket address is the only client identity.
 | `CONCURRENCY_CAP_ENABLED` | `true` | **Demo only.** `false` means the 503 cap never refuses (in-flight requests are still counted), for the denial of service before/after recording; startup then logs a warning. Never set it in deployment. |
 | `BODY_LIMIT_ENABLED` | `true` | **Demo only.** `false` removes the 8192-byte body limit (no 413) for the before/after recording; startup then logs a warning. Never set it in deployment. |
 | `DEMO_ANALYZE_DELAY_MS` | `0` | **Demo only.** 0-5000. Above 0, every `/analyze` sleeps this long in its worker thread while holding its concurrency slot, a stand-in for an expensive model call; startup then logs a warning. Never set it in deployment. |
+| `HOMOGLYPH_DEFENCE` | `true` | Detection evasion defence (section 8): look-alike characters are folded before scoring. **Demo only** to set `false`, which scores the raw text as A2 does; startup then logs a warning. |
 | `API_DOCS_ENABLED` | `true` | Set `false` in deployment to remove `/docs` and `/openapi.json`. |
 | `MODEL_MANIFEST` | `backend/model_manifest.json` | Manifest naming the artefact and its expected SHA-256. |
 
@@ -137,7 +138,9 @@ Errors all use the same shape:
 There are 0-10 signals per response: up to 5 `ngram` signals ordered by descending
 `|weight|`, then the `rule` signals in a fixed order. `start`/`end` are code-point offsets
 into `analysed_url`, and `text == analysed_url[start:end]`. When a span cannot be mapped
-faithfully, all three are null.
+faithfully, all three are null. With the homoglyph defence on (section 8), every `ngram`
+signal of a URL that folding changed has all three null, because the folded model input
+no longer lines up with `analysed_url`; rule signals keep their offsets.
 
 ### N-gram signals
 
@@ -200,7 +203,7 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
 | `test_security.py` | 8192/8193-byte boundary with and without Content-Length (also over a real uvicorn socket), 429 + `Retry-After` (token bucket, bounded store, every body counts, keyed on the socket address, `X-Forwarded-For` ignored, demo switch, 429 before 503), 503 + `Retry-After`, slot release, CORS, config refusal, no network/subprocess calls, no URLs in logs |
 | `test_security.py` (demo switches) | `CONCURRENCY_CAP_ENABLED`, `BODY_LIMIT_ENABLED` and `DEMO_ANALYZE_DELAY_MS` parse and bad values are refused; defaults unchanged; cap off gives no 503 but still counts in-flight requests; body limit off lets a 9000-byte body through; a 300 ms delay runs in the worker thread while `/health` answers in under 0.15 s; a startup warning per switch |
 | `test_signals.py` | exact attribution, ordering, Unicode offsets, brand mask mapping, rules |
-| `test_normalization.py` | the P2 defence |
+| `test_normalization.py` | the P2 defence: folding, mask decided on the original host; through `analyze` and over HTTP with the real model: ASCII URLs identical with the defence on and off, Cyrillic and fullwidth look-alikes score like their ASCII base, an official-domain homograph gets no brand mask, null n-gram offsets only when folding changed the text |
 
 ## 7. Security support
 
@@ -407,12 +410,49 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
   against about 3 ms for a typical URL. Body size, URL length and the concurrency cap
   bound the work any single client can cause.
 
-## 8. Unicode look-alike experiment (P2)
+## 8. Detection evasion defence (P2 look-alike characters)
 
-See `experiments/FINDINGS.md`. In short, on 1,000 look-alike variants of real
-dataset phishing URLs the baseline missed 9 and the mask-aware defence 1. Naive
-NFKC/confusable folding made official-domain homographs *easier* to slip through (16/16 →
-10/16). The defence is not enabled in v1.
+On by default (`HOMOGLYPH_DEFENCE=true`). Before scoring, `/analyze` passes the URL
+through `normalization.defended_model_input()`: NFKC (fullwidth, mathematical letters,
+ligatures), lowercase, a table of listed Cyrillic/Greek/Armenian/Latin look-alikes, and
+the A2 brand mask decided on the *original* host, never naive folding. The folded text is
+scored with the verified pipeline's own fitted steps (`PreprocessedScorer`, built once at
+startup). `analysed_url` and the rule signals stay on the unfolded text. A URL that
+folding does not change, which includes every pure ASCII URL, gets exactly the A2 score
+and the same response as with the defence off. A URL that folding changes is scored on
+the folded text and its `ngram` signals have null offsets.
+
+Measured in `experiments/FINDINGS.md` (`experiments/results/summary.json`, seed 42):
+
+| | baseline (A2 as is) | naive folding | defence |
+|---|---:|---:|---:|
+| 1,000 look-alike variants of dataset phishing URLs: missed | 9 (0.9%) | 1 (0.1%) | 1 (0.1%) |
+| 16 IDN homographs of official domains: detected | 16 | **10** | 16 |
+| 5,000 legitimate test-split URLs: flagged | 384 (7.68%) | 384 | 384 |
+| 60 legitimate non-ASCII URLs (7 changed by folding): flagged | 6 | 6 | 6 |
+
+By strategy (200 variants each), baseline to defence: Greek 5 to 0, fullwidth 2 to 0,
+Cyrillic-all 1 to 0, Cyrillic-one 0 to 0, dot diacritics (not covered) 1 to 1. Paired on
+the same 1,000 variants, 8 were missed by the baseline and caught by the defence and none
+the other way round (exact McNemar p = 0.0078). The defence changed no benign label. Mean
+latency per URL in `summary.json`: baseline 1.057 ms (p95 1.931), defence 0.690 ms
+(p95 1.455); FINDINGS.md quotes 1.627 and 1.553 ms from its write-up. Either way the
+defence adds no measurable cost.
+
+Known limits (from FINDINGS.md):
+
+- NFKC does not fold cross-script letters, and the table covers only the letters listed in
+  `normalization.py`, not all of `confusables.txt`.
+- Diacritic look-alikes (`ạ`, `ọ`) are untouched on purpose, because stripping accents
+  would change legitimate Vietnamese, French or German domains; that strategy still evades
+  (1 of 200).
+- Folding rewrites legitimate non-Latin text (Cyrillic "сор" becomes Latin "cop"), and the
+  benign non-ASCII set it was checked on is small (60 URLs, 7 changed).
+- The 16/16 homograph detection mostly reflects how the model scores login paths: the
+  baseline also flags 5 of the 8 real ASCII login URLs.
+- For a URL that folding changes, the score no longer equals `scripts/predict.py` (the
+  parity tests use `ModelService.analyze` without the defence) and the n-gram signals
+  cannot be highlighted in the URL.
 
 Reproduce with `python experiments/homoglyph_evasion.py` (needs `requirements-dev.txt`
 and `data/processed/features.parquet`).

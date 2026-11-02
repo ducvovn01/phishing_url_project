@@ -75,6 +75,17 @@ measurable cost.
 
 ## Decision for v1
 
+**Update (2026-11-02): the defence is now enabled by default in the API**
+(`HOMOGLYPH_DEFENCE=true`; `false` is for the before/after demo only). Why: it is the
+project's section 2.8 (detection evasion) defence. It is wired exactly as the original decision below
+asked: `defended_model_input()` (never `naive_fold`), scored with `PreprocessedScorer`,
+`analysed_url` kept unfolded, and `ngram` signals with null offsets for folded inputs. The
+parity concern is handled by keeping `ModelService.analyze()` undefended unless the caller
+asks, so the A2 parity tests are unchanged; a pure ASCII URL gets the same response either
+way. See `backend/README.md` section 8.
+
+The original decision, kept as history:
+
 **The defence is not enabled in the v1 API.** The API keeps exact A2 parity, and it still
 shows look-alikes to the user through the `rule-brand-lookalike` signal (which uses A2's
 own homoglyph and leetspeak maps).

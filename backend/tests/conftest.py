@@ -37,7 +37,7 @@ class FakeService:
         self.error = error
         self.calls = 0
 
-    def analyze(self, url: str) -> Analysis:
+    def analyze(self, url: str, homoglyph_defence: bool = False) -> Analysis:
         self.calls += 1
         if self.gate is not None:
             assert self.gate.wait(timeout=10), "test gate was never opened"

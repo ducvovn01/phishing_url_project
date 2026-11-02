@@ -418,6 +418,8 @@ def test_error_responses_carry_cors_for_the_frontend(fake_client):
     {"DEMO_ANALYZE_DELAY_MS": "-1"},
     {"DEMO_ANALYZE_DELAY_MS": "5001"},
     {"DEMO_ANALYZE_DELAY_MS": "0.5"},
+    {"HOMOGLYPH_DEFENCE": "maybe"},
+    {"HOMOGLYPH_DEFENCE": ""},
 ])
 def test_misconfiguration_is_refused(env):
     with pytest.raises(ConfigError):
@@ -430,15 +432,15 @@ def test_valid_configuration():
                               "RATE_LIMIT_ENABLED": "false", "RATE_LIMIT_REQUESTS": "10",
                               "RATE_LIMIT_WINDOW_SECONDS": "30",
                               "CONCURRENCY_CAP_ENABLED": "false", "BODY_LIMIT_ENABLED": "no",
-                              "DEMO_ANALYZE_DELAY_MS": "5000"})
+                              "DEMO_ANALYZE_DELAY_MS": "5000", "HOMOGLYPH_DEFENCE": "false"})
     assert settings.cors_origins == ("http://localhost:5173", "https://app.example.com")
     assert settings.max_concurrency == 8 and settings.docs_enabled is False
     assert settings.rate_limit_enabled is False
     assert (settings.rate_limit_requests, settings.rate_limit_window_seconds) == (10, 30)
     assert settings.concurrency_cap_enabled is False and settings.body_limit_enabled is False
-    assert settings.demo_analyze_delay_ms == 5000
+    assert settings.demo_analyze_delay_ms == 5000 and settings.homoglyph_defence is False
     assert load_settings({"CONCURRENCY_CAP_ENABLED": "1", "BODY_LIMIT_ENABLED": "true",
-                          "DEMO_ANALYZE_DELAY_MS": "0"}) == Settings()
+                          "DEMO_ANALYZE_DELAY_MS": "0", "HOMOGLYPH_DEFENCE": "yes"}) == Settings()
     assert load_settings({}) == Settings()
 
 
@@ -452,6 +454,7 @@ def test_rate_limit_default_matches_the_contract():
     # The demo switches default to the defended behaviour.
     assert defaults.concurrency_cap_enabled is True and defaults.body_limit_enabled is True
     assert defaults.demo_analyze_delay_ms == 0
+    assert defaults.homoglyph_defence is True
 
 
 # ---- demo-only switches ------------------------------------------------------------------
@@ -527,6 +530,22 @@ def test_startup_log_warns_about_each_demo_switch():
         logger.removeHandler(handler)
     for text in expected:
         assert any(text in line and "demo use only" in line for line in handler.lines), text
+
+
+def test_startup_log_says_whether_the_homoglyph_defence_is_on():
+    handler = ListHandler()
+    logger = logging.getLogger("phishing_api")
+    logger.addHandler(handler)
+    try:
+        with make_client():
+            pass
+        with make_client(homoglyph_defence=False):
+            pass
+    finally:
+        logger.removeHandler(handler)
+    assert any("homoglyph defence on" in line for line in handler.lines)
+    assert any("homoglyph defence OFF" in line and "demo use only" in line
+               for line in handler.lines)
 
 
 # ---- no outbound activity, sanitized logs ------------------------------------------------

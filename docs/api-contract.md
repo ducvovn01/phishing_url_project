@@ -133,7 +133,7 @@ This is real output of the A2 model for the example input.
 | Field | Type | Meaning |
 |---|---|---|
 | `submitted_url` | string | The trimmed URL exactly as received. The frontend shows it as plain text only. |
-| `analysed_url` | string | The text the model analysed: scheme removed and lowercased (the same preprocessing as training), before the model's brand masking. All `start` and `end` offsets refer to this string. |
+| `analysed_url` | string | The text the model analysed: scheme removed and lowercased (the same preprocessing as training), before the model's brand masking. All `start` and `end` offsets refer to this string. It is always the unfolded text: the backend's homoglyph defence (on by default) folds look-alike characters only in what the model scores, never in `analysed_url`. |
 | `label` | `"phishing"` or `"legitimate"` | `phishing` when `phishing_probability` is at or above `threshold`. |
 | `confidence` | number, 0 to 1 | Probability of the predicted label: `phishing_probability` for `phishing`, `1 - phishing_probability` for `legitimate`. It can be extremely close to 1 (for example 0.9999999990), so the frontend must not round it up to "100%" (section 6). |
 | `phishing_probability` | number, 0 to 1 | Raw model output. |
@@ -155,7 +155,7 @@ This is real output of the A2 model for the example input.
 | `text` | string or `null` | The substring at `start:end`. |
 | `explanation` | string | One sentence for non-technical users. Plain text, never HTML. |
 
-`start`, `end` and `text` are either all set or all `null`. They are `null` when the backend cannot map a span faithfully back to `analysed_url` (this can happen for an n-gram that touches the model's brand mask). The frontend must cope with a signal that has no position: it is still listed, and the weight chart still shows it if it has a weight.
+`start`, `end` and `text` are either all set or all `null`. They are `null` when the backend cannot map a span faithfully back to `analysed_url`: for an n-gram that touches the model's brand mask, and for every `ngram` signal when the homoglyph defence folded the URL (it contained look-alike characters such as Cyrillic `а` or fullwidth letters), because the folded text the model scored no longer lines up with `analysed_url`. Rule signals keep their offsets. A pure ASCII URL is never folded. The frontend must cope with a signal that has no position: it is still listed, and the weight chart still shows it if it has a weight.
 
 Ordering: `ngram` signals first, sorted by absolute `weight`, largest first. `rule` signals follow.
 
@@ -319,7 +319,7 @@ Status: built (`backend/app/rate_limit.py`, PR #4). The frontend handles it, and
 | Question | Answer |
 |---|---|
 | Threshold | 0.5, saved with the model and returned as `threshold`. |
-| Offsets and the brand mask | The backend finds offsets on the masked model input and maps them back to `analysed_url`. If a span cannot be mapped faithfully, `start`, `end` and `text` are `null`. |
+| Offsets and the brand mask | The backend finds offsets on the masked model input and maps them back to `analysed_url`. If a span cannot be mapped faithfully, `start`, `end` and `text` are `null`. With the homoglyph defence on, all `ngram` offsets of a folded URL are `null`. |
 | Merging n-grams | As described in section 3.4: strongest occurrences, same-direction overlaps merged, net weight reported, weak segments dropped. |
 | Rule list | The five rules in section 3.4. |
 

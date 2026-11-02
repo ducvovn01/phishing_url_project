@@ -41,11 +41,11 @@ class ConcurrencyGuard:
             self._in_flight -= 1
 
 
-def _analyze_in_worker(service, url: str, delay_seconds: float):
+def _analyze_in_worker(service, url: str, delay_seconds: float, homoglyph_defence: bool):
     """Runs in the worker thread, so the demo delay never blocks the event loop."""
     if delay_seconds:
         time.sleep(delay_seconds)
-    return service.analyze(url)
+    return service.analyze(url, homoglyph_defence=homoglyph_defence)
 
 
 def _error_doc(description: str, code: str, message: str, details: list[dict] | None = None,
@@ -138,7 +138,8 @@ async def analyze(payload: AnalyzeRequest, request: Request) -> AnalyzeResponse:
         # run_in_threadpool waits for the worker thread even if the client disconnects, so
         # the slot is released only once the analysis has really finished.
         analysis = await run_in_threadpool(_analyze_in_worker, state.model_service, payload.url,
-                                           state.settings.demo_analyze_delay_ms / 1000)
+                                           state.settings.demo_analyze_delay_ms / 1000,
+                                           state.settings.homoglyph_defence)
     finally:
         state.guard.release()
     fields = asdict(analysis)

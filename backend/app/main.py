@@ -61,6 +61,11 @@ def create_app(settings: Settings | None = None,
         else:
             logger.warning("rate limit OFF (RATE_LIMIT_ENABLED=false): demo use only, the "
                            "503 concurrency cap is the only overload defence")
+        if settings.homoglyph_defence:
+            logger.info("homoglyph defence on: look-alike characters are folded before scoring")
+        else:
+            logger.warning("homoglyph defence OFF (HOMOGLYPH_DEFENCE=false): demo use only, "
+                           "look-alike characters reach the model unfolded")
         if not settings.concurrency_cap_enabled:
             logger.warning("concurrency cap OFF (CONCURRENCY_CAP_ENABLED=false): demo use "
                            "only, /analyze is never refused with 503")
