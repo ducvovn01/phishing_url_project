@@ -20,7 +20,13 @@ page, resolves DNS, runs WHOIS or calls a reputation service.
 | `scripts/` | The Assignment 2 pipeline: data preparation, feature extraction, training and `predict.py` |
 | `requirements.txt` | Python dependencies of the Assignment 2 pipeline |
 
-TODO(team): confirm which large data files are left out of the ZIP.
+Left out of the ZIP: `node_modules/`, `.venv/`, `dist/`, every `__pycache__/` folder, and the two
+data files that no final model uses, `data/processed/duplicates_removed.csv` (164 MB) and
+`data/processed/features.csv` (258 MB). The API needs only `models/`, `scripts/` and
+`data/reference/tranco_top1000.csv` at run time.
+
+TODO(team): decide whether `data/processed/combined_dataset.csv` (84 MB) and
+`data/processed/features.parquet` (92 MB) go in the ZIP, after checking the upload size limit.
 
 ## Architecture
 
@@ -222,11 +228,15 @@ The training pipeline and its commands are in
 
 ## Team and contributions
 
-- TODO(team): member 1 name, student ID and role.
-- TODO(team): member 2 name, student ID and role.
-- TODO(team): member 3 name, student ID and role.
-- TODO(team): add or remove rows to match the team, and describe what each member
-  contributed.
+| Name | Student ID | Role |
+|---|---|---|
+| Quang Phu Duc Vo | 105739480 | Team leader; model and backend (the FastAPI service, the per-client rate limiter) |
+| Vinh Nghiem | 105282913 | Frontend; security evidence, misconfiguration review, threat model and README (took over the cybersecurity work) |
+| Lachlan Rouse | 105348886 | Cybersecurity role |
+
+Tutor: Jianwen. Group 2, Session 11.
+
+TODO(team): check each role above and describe what each member contributed.
 
 ## Use of generative AI
 
@@ -234,35 +244,22 @@ TODO(team): list the tools used, what they were used for, and how the output was
 
 ## References
 
-- FastAPI (TODO(team): confirm year and access date) *FastAPI*, version 0.143.3.
-  TODO(team): add URL.
-- Uvicorn (TODO(team): confirm year and access date) *Uvicorn*, version 0.54.0.
-  TODO(team): add URL.
-- Pydantic (TODO(team): confirm year and access date) *Pydantic*, version 2.14.1.
-  TODO(team): add URL.
-- scikit-learn (TODO(team): confirm year and access date) *scikit-learn*, version 1.9.1. TODO(team): add URL.
-- joblib (TODO(team): confirm year and access date) *joblib*, version 1.6.0.
-  TODO(team): add URL.
-- React (TODO(team): confirm year and access date) *React*, version 19.3.1.
-  TODO(team): add URL.
-- MUI (TODO(team): confirm year and access date) *Material UI*, version 9.5.0, and
-  *MUI X Charts*, version 9.16.0. TODO(team): add URL.
-- axios (TODO(team): confirm year and access date) *axios*, version 1.20.0.
-  TODO(team): add URL.
-- Vite (TODO(team): confirm year and access date) *Vite*, version 8.3.4.
-  TODO(team): add URL.
-- Mitake (TODO(team): confirm year and access date) *PhishingURLsANDBenignURLs*
-  [dataset], Hugging Face. TODO(team): add URL.
-- Guner, S. (TODO(team): confirm year and access date) *PhishingURLsDataset*
-  [dataset], Hugging Face (gated). TODO(team): add URL.
-- harisudhan411 (TODO(team): confirm year and access date) *phishing-and-legitimate-urls*
-  [dataset], Kaggle. TODO(team): add URL.
-- TODO(team): confirm authors, year and access date. *PhiUSIIL Phishing URL Dataset*
-  [dataset], UCI Machine Learning Repository. TODO(team): add URL.
-- TODO(team): confirm the publisher, year and access date. *OWASP ZAP*, version 2.17.0
-  (the Docker image `ghcr.io/zaproxy/zaproxy:stable`). TODO(team): add URL.
-- Unicode Consortium (TODO(team): confirm year and access date) *confusables.txt*
-  (cited in `backend/app/services/normalization.py`). TODO(team): add URL.
+- Christie, T. and Trylesinski, M. (n.d.) *Uvicorn* (version 0.54.0) [Computer program]. Available at: https://uvicorn.dev/ (Accessed: November 2026).
+- Colvin, S. et al. (n.d.) *Pydantic* (version 2.14.1) [Computer program]. Available at: https://github.com/pydantic/pydantic (Accessed: November 2026).
+- harisudhan411 (n.d.) *Phishing and legitimate URLs* [Dataset]. Kaggle. Available at: https://www.kaggle.com/datasets/harisudhan411/phishing-and-legitimate-urls (Accessed: September 2026).
+- Mitake (n.d.) *PhishingURLsANDBenignURLs* [Dataset]. Hugging Face. Available at: https://huggingface.co/datasets/Mitake/PhishingURLsANDBenignURLs (Accessed: September 2026).
+- MUI Team (n.d.) *Material UI* (version 9.5.0) [Computer program]. Available at: https://mui.com/material-ui/ (Accessed: November 2026).
+- MUI Team (n.d.) *MUI X Charts* (version 9.16.0) [Computer program]. Available at: https://mui.com/x/react-charts/ (Accessed: November 2026).
+- Pedregosa, F. et al. (2011) 'Scikit-learn: machine learning in Python', *Journal of Machine Learning Research*, 12, pp. 2825-2830. (Version 1.9.1 is the one pinned in `backend/requirements.txt`.)
+- Prasad, A. and Chandra, S. (2024) *PhiUSIIL phishing URL dataset* [Dataset]. UCI Machine Learning Repository. Available at: https://archive.ics.uci.edu/dataset/967/phiusiil+phishing+url+dataset (Accessed: September 2026).
+- Ramírez, S. (n.d.) *FastAPI* (version 0.143.3) [Computer program]. Available at: https://fastapi.tiangolo.com/ (Accessed: November 2026).
+- React (n.d.) *React* (version 19.3.1) [Computer program]. Available at: https://react.dev/ (Accessed: November 2026).
+- semihGuner2002 (n.d.) *PhishingURLsDataset* [Dataset]. Hugging Face. Available at: https://huggingface.co/datasets/semihGuner2002/PhishingURLsDataset (Accessed: September 2026).
+- Unicode Consortium (2026) *Unicode Security Mechanisms*, Unicode Technical Standard #39, version 18.0.0 (includes `confusables.txt`, cited in `backend/app/services/normalization.py`). Available at: https://www.unicode.org/reports/tr39/ (Accessed: November 2026).
+- Varoquaux, G. (n.d.) *joblib* (version 1.6.0) [Computer program]. Available at: https://joblib.readthedocs.io (Accessed: November 2026).
+- You, E. (n.d.) *Vite* (version 8.3.4) [Computer program]. Available at: https://vite.dev/ (Accessed: November 2026).
+- Zabriskie, M. (n.d.) *axios* (version 1.20.0) [Computer program]. Available at: https://axios.rest/ (Accessed: November 2026).
+- ZAP (n.d.) *ZAP (Zed Attack Proxy)* (version 2.17.0) [Computer program]. Available at: https://www.zaproxy.org/ (Accessed: November 2026).
 
 ## Before submitting
 
