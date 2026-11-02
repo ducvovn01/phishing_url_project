@@ -52,6 +52,9 @@ of this service, so the socket address is the only client identity.
 | `RATE_LIMIT_REQUESTS` | `30` | Requests per client per window on `/analyze` (1-10000). |
 | `RATE_LIMIT_WINDOW_SECONDS` | `60` | The window, in whole seconds (1-3600). |
 | `RATE_LIMIT_ENABLED` | `true` | **Demo only.** `false` removes the per-client limit for the before/after recording; startup then logs a warning. Never set it in deployment. |
+| `CONCURRENCY_CAP_ENABLED` | `true` | **Demo only.** `false` means the 503 cap never refuses (in-flight requests are still counted), for the denial of service before/after recording; startup then logs a warning. Never set it in deployment. |
+| `BODY_LIMIT_ENABLED` | `true` | **Demo only.** `false` removes the 8192-byte body limit (no 413) for the before/after recording; startup then logs a warning. Never set it in deployment. |
+| `DEMO_ANALYZE_DELAY_MS` | `0` | **Demo only.** 0-5000. Above 0, every `/analyze` sleeps this long in its worker thread while holding its concurrency slot, a stand-in for an expensive model call; startup then logs a warning. Never set it in deployment. |
 | `API_DOCS_ENABLED` | `true` | Set `false` in deployment to remove `/docs` and `/openapi.json`. |
 | `MODEL_MANIFEST` | `backend/model_manifest.json` | Manifest naming the artefact and its expected SHA-256. |
 

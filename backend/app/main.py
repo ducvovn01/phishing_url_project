@@ -61,6 +61,16 @@ def create_app(settings: Settings | None = None,
         else:
             logger.warning("rate limit OFF (RATE_LIMIT_ENABLED=false): demo use only, the "
                            "503 concurrency cap is the only overload defence")
+        if not settings.concurrency_cap_enabled:
+            logger.warning("concurrency cap OFF (CONCURRENCY_CAP_ENABLED=false): demo use "
+                           "only, /analyze is never refused with 503")
+        if not settings.body_limit_enabled:
+            logger.warning("body limit OFF (BODY_LIMIT_ENABLED=false): demo use only, bodies "
+                           "over %d bytes are no longer refused with 413", MAX_BODY_BYTES)
+        if settings.demo_analyze_delay_ms:
+            logger.warning("demo delay ON (DEMO_ANALYZE_DELAY_MS=%d): demo use only, every "
+                           "/analyze sleeps that long in its worker thread",
+                           settings.demo_analyze_delay_ms)
         yield
         app.state.model_service = None
 
@@ -74,7 +84,8 @@ def create_app(settings: Settings | None = None,
         openapi_url="/openapi.json" if settings.docs_enabled else None,
     )
     app.state.settings = settings
-    app.state.guard = ConcurrencyGuard(settings.max_concurrency)
+    app.state.guard = ConcurrencyGuard(settings.max_concurrency,
+                                       enforced=settings.concurrency_cap_enabled)
     app.state.rate_limiter = (RateLimiter(settings.rate_limit_requests,
                                           settings.rate_limit_window_seconds)
                               if settings.rate_limit_enabled else None)
@@ -82,7 +93,8 @@ def create_app(settings: Settings | None = None,
     install_error_handlers(app)
     app.include_router(router)
     # Added innermost first: CORS wraps everything, so error responses get CORS headers too.
-    app.add_middleware(BodySizeLimitMiddleware, max_bytes=MAX_BODY_BYTES)
+    if settings.body_limit_enabled:
+        app.add_middleware(BodySizeLimitMiddleware, max_bytes=MAX_BODY_BYTES)
     if app.state.rate_limiter is not None:
         # Outside the body limit, so a limited client is refused before its body is read.
         app.add_middleware(RateLimitMiddleware, limiter=app.state.rate_limiter)
