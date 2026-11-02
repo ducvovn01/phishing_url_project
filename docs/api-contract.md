@@ -24,7 +24,7 @@ These numbers are used in three places: the backend validation, the frontend for
 | URL length (after trimming) | 1 to 2048 Unicode code points |
 | Request body size | 8192 bytes maximum, enforced by the backend before parsing (also for chunked uploads with no `Content-Length`) |
 | Signals returned | at most 10 in total (n-gram and rule signals together) |
-| Concurrent analyses | 4 per worker process by default (`ANALYZE_MAX_CONCURRENCY`, 1 to 64). Over the cap a request is refused at once with 503, not queued. |
+| Concurrent analyses | 2 per worker process by default (`ANALYZE_MAX_CONCURRENCY`, 1 to 64). Over the cap a request is refused at once with 503, not queued. |
 
 ## 3. `POST /analyze`
 
@@ -331,3 +331,4 @@ Status: built (`backend/app/rate_limit.py`, PR #4). The frontend handles it, and
 | 2026-10-23 | Updated to the implemented v1 (PR #2): scheme and character rules, real example, null offsets, rule list, error details, `Retry-After`, security headers; added the planned `429 rate_limited`; settled the open questions; added frontend rules 6 to 8 | Vinh |
 | 2026-10-24 | Frontend now handles `429 rate_limited` (section 5.1, rule 7); the form accepts bracketed IPv6 literals and `localhost` (rule 8); `Retry-After` for 503 and 429 is a whole number of seconds and the frontend ignores any other form (such as an HTTP date), showing no wait line; the frontend default busy message now matches the server message | Vinh |
 | 2026-10-27 | Section 5.1 changed from planned to built (PR #4): token bucket defaults (burst of 30, refill 30 per 60 seconds), key is the socket address with `--no-proxy-headers`, checked before the body is read, 503 cap kept as the second layer, `RATE_LIMIT_ENABLED=false` demo-only switch; section 5 table row and status line updated | Vinh |
+| 2026-11-02 | Default concurrency cap (section 2) changed from 4 to 2 per worker process, from the real-inference cap sweep in `backend/README.md` section 7 | |

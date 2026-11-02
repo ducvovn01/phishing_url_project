@@ -27,7 +27,7 @@ DELAY MODE
     .venv/Scripts/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers --no-server-header --no-access-log
     # terminal 2, from backend/
     .venv/Scripts/python scripts/security/dos_before_after.py --phase before
-    # terminal 1: stop the server. AFTER: cap (4) and body limit back on, the defaults;
+    # terminal 1: stop the server. AFTER: cap (the default of 2) and body limit back on;
     # RATE_LIMIT_ENABLED=false and DEMO_ANALYZE_DELAY_MS=1000 stay set
     #   PowerShell:  Remove-Item Env:CONCURRENCY_CAP_ENABLED, Env:BODY_LIMIT_ENABLED
     #   bash:        unset CONCURRENCY_CAP_ENABLED BODY_LIMIT_ENABLED
@@ -51,7 +51,7 @@ REAL MODE (DEMO_ANALYZE_DELAY_MS must NOT be set in either phase)
     # start the server again, then in terminal 2:
     .venv/Scripts/python scripts/security/dos_before_after.py --phase after --expensive real
 
-CAP SWEEP: --max-concurrency N records the server's ANALYZE_MAX_CONCURRENCY (default 4) in
+CAP SWEEP: --max-concurrency N records the server's ANALYZE_MAX_CONCURRENCY (default 2) in
 server_settings for an after phase. It does not change the server, so pass the same N the
 server was started with. --label names the run and --json-out keeps each run in its own file:
 
@@ -108,14 +108,14 @@ SETTINGS = {
                    "BODY_LIMIT_ENABLED": False, "DEMO_ANALYZE_DELAY_MS": 1000},
         "after": {"RATE_LIMIT_ENABLED": False, "CONCURRENCY_CAP_ENABLED": True,
                   "BODY_LIMIT_ENABLED": True, "DEMO_ANALYZE_DELAY_MS": 1000,
-                  "ANALYZE_MAX_CONCURRENCY": 4},
+                  "ANALYZE_MAX_CONCURRENCY": 2},
     },
     "real": {
         "before": {"RATE_LIMIT_ENABLED": False, "CONCURRENCY_CAP_ENABLED": False,
                    "BODY_LIMIT_ENABLED": False, "DEMO_ANALYZE_DELAY_MS": 0},
         "after": {"RATE_LIMIT_ENABLED": False, "CONCURRENCY_CAP_ENABLED": True,
                   "BODY_LIMIT_ENABLED": True, "DEMO_ANALYZE_DELAY_MS": 0,
-                  "ANALYZE_MAX_CONCURRENCY": 4},
+                  "ANALYZE_MAX_CONCURRENCY": 2},
     },
 }
 
@@ -277,7 +277,7 @@ def summarise(rows: list[dict]) -> dict:
 
 
 def run_phase(phase: str, mode: str, host: str, port: int, n_repeats: int,
-              n_flood: int, max_concurrency: int = 4) -> dict:
+              n_flood: int, max_concurrency: int = 2) -> dict:
     body = EXPENSIVE_BODY[mode]
     server_settings = dict(SETTINGS[mode][phase])
     if "ANALYZE_MAX_CONCURRENCY" in server_settings:  # after phases only
@@ -483,7 +483,7 @@ def main() -> None:
                              "with --expensive real)")
     parser.add_argument("--label", default=None,
                         help="short name for this run, stored in the JSON (e.g. \"cap 1\")")
-    parser.add_argument("--max-concurrency", type=int, default=4,
+    parser.add_argument("--max-concurrency", type=int, default=2,
                         help="the server's ANALYZE_MAX_CONCURRENCY, recorded for after phases "
                              "only; it does not change the server (1 to 64, default "
                              "%(default)s)")

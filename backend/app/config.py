@@ -26,8 +26,9 @@ class ConfigError(ValueError):
 class Settings:
     manifest_path: Path = DEFAULT_MANIFEST
     cors_origins: tuple[str, ...] = ("http://localhost:5173",)
-    # In-flight /analyze requests per worker process; more are refused with 503.
-    max_concurrency: int = 4
+    # In-flight /analyze requests per worker process; more are refused with 503. The default
+    # of 2 comes from the real-inference cap sweep (README, "Concurrency cap sweep").
+    max_concurrency: int = 2
     docs_enabled: bool = True
     # Per-client limit on /analyze (contract section 5.1): a burst of up to
     # rate_limit_requests, given back at rate_limit_requests per rate_limit_window_seconds.

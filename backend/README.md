@@ -48,7 +48,7 @@ of this service, so the socket address is the only client identity.
 | Variable | Default | Meaning |
 |---|---|---|
 | `CORS_ALLOW_ORIGINS` | `http://localhost:5173` | Comma-separated exact origins. `*`, paths and wildcards are refused at startup. |
-| `ANALYZE_MAX_CONCURRENCY` | `4` | In-flight `/analyze` calls per worker process (1-64). |
+| `ANALYZE_MAX_CONCURRENCY` | `2` | In-flight `/analyze` calls per worker process (1-64). The default of 2 comes from the real-inference cap sweep in section 7 (`evidence/dos_cap_sweep_real_*.json`): during a flood of 100 the `/health` p95 was 671 ms at cap 2 against 1243 ms at cap 4 and 1816 ms with no cap, while cap 1 (562 ms) served only 98 of 500 requests against 187 at cap 2; no cap size met the 0.5 s target. The cost is fewer simultaneous analyses: a request that arrives while two are already in flight is refused with 503. |
 | `RATE_LIMIT_REQUESTS` | `30` | Requests per client per window on `/analyze` (1-10000). |
 | `RATE_LIMIT_WINDOW_SECONDS` | `60` | The window, in whole seconds (1-3600). |
 | `RATE_LIMIT_ENABLED` | `true` | **Demo only.** `false` removes the per-client limit for the before/after recording; startup then logs a warning. Never set it in deployment. |
@@ -318,7 +318,7 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
   Delay mode, one real run (2026-11-02, 5 repeats, Python 3.14.7 on Windows; ms as
   median / p95 / max). Both phases PASS:
 
-  | | before (cap and body limit off) | after (defaults, cap 4) |
+  | | before (cap and body limit off) | after (cap 4, the default when recorded) |
   |---|---|---|
   | one slow `/analyze` | 1025 / 1086 / 1086 ms | 1035 / 1111 / 1111 ms |
   | beside it: `/health` | 2 / 21 / 28 ms | 3 / 21 / 25 ms |
@@ -331,7 +331,7 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
   | 9 KB / 1 MB / 10 MB body | 200 / 200 / 200, about 1.2 s each | 413 / 413 / 413 in 2 / 1 / 2 ms |
 
   Before, all 100 requests were accepted and queued: a 1 s analysis took up to 3.3 s, and
-  every oversized body was read in full and analysed. After, 4 requests at a time ran in
+  every oversized body was read in full and analysed. After (cap 4, the default when this was recorded), 4 requests at a time ran in
   about 1 s and the rest were refused in a fraction of a second. In both phases
   `/health` stayed well under 0.5 s, because a sleeping worker thread does not hold up
   the event loop.
@@ -340,7 +340,7 @@ python -m pytest -m "not model"   # HTTP/validation/security tests only, no mode
   **FAIL**: the median 503 took 633 ms and the `/health` p95 during the flood was
   1557 ms, both over 0.5 s:
 
-  | | before (cap and body limit off) | after (defaults, cap 4) |
+  | | before (cap and body limit off) | after (cap 4, the default when recorded) |
   |---|---|---|
   | one longest-URL `/analyze` | 16 / 90 / 90 ms | 21 / 98 / 98 ms |
   | beside it: `/health` | 3 / 22 / 27 ms | 2 / 25 / 27 ms |

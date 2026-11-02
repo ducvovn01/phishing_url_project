@@ -447,6 +447,8 @@ def test_rate_limit_default_matches_the_contract():
     defaults = Settings()
     assert defaults.rate_limit_enabled is True
     assert (defaults.rate_limit_requests, defaults.rate_limit_window_seconds) == (30, 60)
+    # Recorded in docs/api-contract.md section 2 and the README settings table.
+    assert defaults.max_concurrency == 2
     # The demo switches default to the defended behaviour.
     assert defaults.concurrency_cap_enabled is True and defaults.body_limit_enabled is True
     assert defaults.demo_analyze_delay_ms == 0
