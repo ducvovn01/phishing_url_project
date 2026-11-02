@@ -1,8 +1,8 @@
 {
 	"@programName": "ZAP",
 	"@version": "2.17.0",
-	"@generated": "Mon, 2 Nov 2026 13:11:21",
-	"created": "2026-11-02T13:11:21.707794877Z",
+	"@generated": "Mon, 2 Nov 2026 13:19:53",
+	"created": "2026-11-02T13:19:53.167408798Z",
 	"insights":[
 		{
 			"level": "Info",
@@ -65,9 +65,9 @@
 							"otherinfo": ""
 						},
 						{
-							"id": "0",
-							"uri": "http://host.docker.internal:8000/sitemap.xml",
-							"nodeName": "http:\/\/host.docker.internal:8000\/sitemap.xml",
+							"id": "2",
+							"uri": "http://host.docker.internal:8000/robots.txt",
+							"nodeName": "http:\/\/host.docker.internal:8000\/robots.txt",
 							"method": "GET",
 							"param": "",
 							"attack": "",
@@ -82,7 +82,7 @@
 					"reference": "<p>https://datatracker.ietf.org/doc/html/rfc7234</p><p>https://datatracker.ietf.org/doc/html/rfc7231</p><p>https://www.w3.org/Protocols/rfc2616/rfc2616-sec13.html</p>",
 					"cweid": "524",
 					"wascid": "13",
-					"sourceid": "1"
+					"sourceid": "7"
 				}
 			]
 		}
