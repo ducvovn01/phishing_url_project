@@ -23,7 +23,11 @@ page, resolves DNS, runs WHOIS or calls a reputation service.
 Left out of the ZIP: `node_modules/`, `.venv/`, `dist/`, every `__pycache__/` folder, and the two
 data files that no final model uses, `data/processed/duplicates_removed.csv` (164 MB) and
 `data/processed/features.csv` (258 MB). The API needs only `models/`, `scripts/` and
-`data/reference/tranco_top1000.csv` at run time.
+`data/reference/` (`tranco_top1000.csv` and `brand_list.py`) at run time.
+
+The model file is `models/char_ngram.joblib` at the top of the ZIP, not inside `backend/`. The
+backend finds it through `backend/model_manifest.json` and loads it only if its SHA-256 matches
+the manifest.
 
 TODO(team): decide whether `data/processed/combined_dataset.csv` (84 MB) and
 `data/processed/features.parquet` (92 MB) go in the ZIP, after checking the upload size limit.
