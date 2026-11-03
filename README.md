@@ -16,21 +16,26 @@ page, resolves DNS, runs WHOIS or calls a reputation service.
 | `frontend/` | The React and Vite client (`src/`), `package.json`, `package-lock.json`, the npm audit evidence (`evidence/`) and `frontend/README.md` |
 | `docs/` | API contract, threat model, misconfiguration review, frontend security, accessibility, and the Assignment 2 pipeline guide (`model-pipeline.md`) |
 | `models/` | The trained Assignment 2 models (`*.joblib`); the API serves `char_ngram.joblib` |
-| `data/` | Processed dataset, reference brand list, analysis reports and `test_urls.csv` |
+| `data/` | The reference brand list (`reference/`), the analysis reports (`analysis/`) and `test_urls.csv` |
 | `scripts/` | The Assignment 2 pipeline: data preparation, feature extraction, training and `predict.py` |
 | `requirements.txt` | Python dependencies of the Assignment 2 pipeline |
 
-Left out of the ZIP: `node_modules/`, `.venv/`, `dist/`, every `__pycache__/` folder, and the two
-data files that no final model uses, `data/processed/duplicates_removed.csv` (164 MB) and
-`data/processed/features.csv` (258 MB). The API needs only `models/`, `scripts/` and
-`data/reference/` (`tranco_top1000.csv` and `brand_list.py`) at run time.
+Left out of the ZIP: `node_modules/`, `.venv/`, `dist/`, every `__pycache__/` folder, and the four
+large files in `data/processed/`: `duplicates_removed.csv` (164 MB), `features.csv` (258 MB),
+`combined_dataset.csv` (84 MB) and `features.parquet` (92 MB). The API needs only `models/`,
+`scripts/` and `data/reference/` (`tranco_top1000.csv` and `brand_list.py`) at run time, and none
+of the backend tests reads the four files.
+
+Three jobs do need `combined_dataset.csv` and `features.parquet`: rebuilding
+`backend/app/data/rule_stats.json` (`backend/scripts/build_rule_stats.py`), re-running
+`backend/experiments/homoglyph_evasion.py`, and retraining the model. Their results are in the ZIP
+(`rule_stats.json`, `backend/experiments/results/` and `models/`). To regenerate the two files,
+follow [docs/model-pipeline.md](docs/model-pipeline.md), which downloads the source datasets and
+needs Kaggle credentials.
 
 The model file is `models/char_ngram.joblib` at the top of the ZIP, not inside `backend/`. The
 backend finds it through `backend/model_manifest.json` and loads it only if its SHA-256 matches
 the manifest.
-
-TODO(team): decide whether `data/processed/combined_dataset.csv` (84 MB) and
-`data/processed/features.parquet` (92 MB) go in the ZIP, after checking the upload size limit.
 
 ## Architecture
 
