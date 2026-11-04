@@ -364,6 +364,28 @@ def test_health_is_not_limited():
         gate.set()
 
 
+def test_cross_origin_resource_policy_on_success_and_error_responses():
+    json_type = {"Content-Type": "application/json"}
+    origin = {"Origin": ALLOWED_ORIGIN}
+    with limited_client(rate_limit_requests=3) as c:
+        responses = {
+            200: c.post("/analyze", json={"url": "a.com"}, headers=origin),
+            422: c.post("/analyze", content=b"{}", headers={**json_type, **origin}),
+            413: c.post("/analyze", content=body_of_size(9000), headers={**json_type, **origin}),
+            429: c.post("/analyze", json={"url": "a.com"}, headers=origin),
+            404: c.get("/nope", headers=origin),
+        }
+    with make_client(max_concurrency=1) as c:
+        c.app.state.guard.try_acquire()  # hold the only slot
+        responses[503] = c.post("/analyze", json={"url": "a.com"}, headers=origin)
+        c.app.state.guard.release()
+    for status, response in responses.items():
+        assert response.status_code == status, response.text
+        assert response.headers["cross-origin-resource-policy"] == "same-origin", status
+        # CORS is unaffected: the frontend still gets its origin back.
+        assert response.headers["access-control-allow-origin"] == ALLOWED_ORIGIN, status
+
+
 # ---- CORS ------------------------------------------------------------------------------
 
 def test_cors_allows_only_the_frontend_origin(fake_client):
@@ -413,6 +435,13 @@ def test_error_responses_carry_cors_for_the_frontend(fake_client):
     {"RATE_LIMIT_WINDOW_SECONDS": "0"},
     {"RATE_LIMIT_WINDOW_SECONDS": "1.5"},
     {"RATE_LIMIT_WINDOW_SECONDS": "3601"},
+    {"CONCURRENCY_CAP_ENABLED": "off"},
+    {"BODY_LIMIT_ENABLED": "maybe"},
+    {"DEMO_ANALYZE_DELAY_MS": "-1"},
+    {"DEMO_ANALYZE_DELAY_MS": "5001"},
+    {"DEMO_ANALYZE_DELAY_MS": "0.5"},
+    {"HOMOGLYPH_DEFENCE": "maybe"},
+    {"HOMOGLYPH_DEFENCE": ""},
 ])
 def test_misconfiguration_is_refused(env):
     with pytest.raises(ConfigError):
@@ -423,11 +452,17 @@ def test_valid_configuration():
     settings = load_settings({"CORS_ALLOW_ORIGINS": "http://localhost:5173, https://app.example.com",
                               "ANALYZE_MAX_CONCURRENCY": "8", "API_DOCS_ENABLED": "false",
                               "RATE_LIMIT_ENABLED": "false", "RATE_LIMIT_REQUESTS": "10",
-                              "RATE_LIMIT_WINDOW_SECONDS": "30"})
+                              "RATE_LIMIT_WINDOW_SECONDS": "30",
+                              "CONCURRENCY_CAP_ENABLED": "false", "BODY_LIMIT_ENABLED": "no",
+                              "DEMO_ANALYZE_DELAY_MS": "5000", "HOMOGLYPH_DEFENCE": "false"})
     assert settings.cors_origins == ("http://localhost:5173", "https://app.example.com")
     assert settings.max_concurrency == 8 and settings.docs_enabled is False
     assert settings.rate_limit_enabled is False
     assert (settings.rate_limit_requests, settings.rate_limit_window_seconds) == (10, 30)
+    assert settings.concurrency_cap_enabled is False and settings.body_limit_enabled is False
+    assert settings.demo_analyze_delay_ms == 5000 and settings.homoglyph_defence is False
+    assert load_settings({"CONCURRENCY_CAP_ENABLED": "1", "BODY_LIMIT_ENABLED": "true",
+                          "DEMO_ANALYZE_DELAY_MS": "0", "HOMOGLYPH_DEFENCE": "yes"}) == Settings()
     assert load_settings({}) == Settings()
 
 
@@ -436,6 +471,103 @@ def test_rate_limit_default_matches_the_contract():
     defaults = Settings()
     assert defaults.rate_limit_enabled is True
     assert (defaults.rate_limit_requests, defaults.rate_limit_window_seconds) == (30, 60)
+    # Recorded in docs/api-contract.md section 2 and the README settings table.
+    assert defaults.max_concurrency == 2
+    # The demo switches default to the defended behaviour.
+    assert defaults.concurrency_cap_enabled is True and defaults.body_limit_enabled is True
+    assert defaults.demo_analyze_delay_ms == 0
+    assert defaults.homoglyph_defence is True
+
+
+# ---- demo-only switches ------------------------------------------------------------------
+
+@pytest.mark.anyio
+async def test_concurrency_cap_off_never_gives_503_but_still_counts():
+    gate = threading.Event()
+    fake = FakeService(gate=gate)
+    app = create_app(replace(Settings(), max_concurrency=1, concurrency_cap_enabled=False),
+                     load_model=lambda _: fake)
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+            tasks = [asyncio.create_task(c.post("/analyze", json={"url": f"a{i}.com"}))
+                     for i in range(4)]
+            for _ in range(500):
+                if app.state.guard.in_flight == 4:
+                    break
+                await asyncio.sleep(0.01)
+            assert app.state.guard.in_flight == 4  # over the old limit of 1, none refused
+            gate.set()
+            responses = await asyncio.gather(*tasks)
+            assert app.state.guard.in_flight == 0
+    assert [r.status_code for r in responses] == [200] * 4
+    assert fake.calls == 4
+
+
+def test_body_limit_off_lets_a_9000_byte_body_through():
+    with make_client(body_limit_enabled=False) as c:
+        response = c.post("/analyze", content=body_of_size(9000),
+                          headers={"Content-Type": "application/json"})
+    assert response.status_code == 200, response.text
+
+
+@pytest.mark.anyio
+async def test_demo_delay_runs_in_the_worker_thread_not_the_event_loop():
+    app = create_app(replace(Settings(), demo_analyze_delay_ms=300),
+                     load_model=lambda _: FakeService())
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+            started = time.perf_counter()
+            analyze = asyncio.create_task(c.post("/analyze", json={"url": "a.com"}))
+            for _ in range(500):
+                if app.state.guard.in_flight == 1:
+                    break
+                await asyncio.sleep(0.005)
+            health_started = time.perf_counter()
+            health = await c.get("/health")
+            health_took = time.perf_counter() - health_started
+            assert not analyze.done()  # /health was answered during the delay
+            response = await analyze
+            analyze_took = time.perf_counter() - started
+    assert health.status_code == 200 and health_took < 0.15
+    assert response.status_code == 200 and analyze_took >= 0.3
+
+
+def test_startup_log_warns_about_each_demo_switch():
+    handler = ListHandler()
+    handler.setLevel(logging.WARNING)
+    logger = logging.getLogger("phishing_api")
+    logger.addHandler(handler)
+    expected = ["concurrency cap OFF", "body limit OFF",
+                "demo delay ON (DEMO_ANALYZE_DELAY_MS=300)"]
+    try:
+        with make_client():
+            pass
+        assert not any(text in line for text in expected for line in handler.lines)
+        with make_client(concurrency_cap_enabled=False, body_limit_enabled=False,
+                         demo_analyze_delay_ms=300):
+            pass
+    finally:
+        logger.removeHandler(handler)
+    for text in expected:
+        assert any(text in line and "demo use only" in line for line in handler.lines), text
+
+
+def test_startup_log_says_whether_the_homoglyph_defence_is_on():
+    handler = ListHandler()
+    logger = logging.getLogger("phishing_api")
+    logger.addHandler(handler)
+    try:
+        with make_client():
+            pass
+        with make_client(homoglyph_defence=False):
+            pass
+    finally:
+        logger.removeHandler(handler)
+    assert any("homoglyph defence on" in line for line in handler.lines)
+    assert any("homoglyph defence OFF" in line and "demo use only" in line
+               for line in handler.lines)
 
 
 # ---- no outbound activity, sanitized logs ------------------------------------------------

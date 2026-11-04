@@ -23,6 +23,8 @@ Segments shown to the user:
 
 Offsets are found on the model input (brand label masked to "§") and mapped back to
 ``analysed_url`` with ``align()``; a span that cannot be mapped faithfully gets null offsets.
+When the homoglyph defence folded the text (``folded=True``), the model input no longer
+maps onto ``analysed_url`` at all, so every n-gram signal gets null offsets.
 """
 import logging
 from collections import Counter
@@ -117,6 +119,10 @@ def _single_token(text: str) -> list[str]:
     return [text]
 
 
+def _identity(text: str) -> str:
+    return text
+
+
 class NgramExplainer:
     """Exact per-n-gram log-odds contributions for a fitted A2 char n-gram pipeline."""
 
@@ -136,18 +142,25 @@ class NgramExplainer:
             norm=None,
             dtype=self._vectorizer.dtype,
         )
+        # The pipeline's n-grams without its preprocessor, for folded model input.
+        params = self._vectorizer.get_params()
+        params["preprocessor"] = _identity
+        self._input_vectorizer = HashingVectorizer(**params)
 
-    def occurrences(self, url: str, model_input: str) -> tuple[list[Occurrence], float] | None:
+    def occurrences(self, url: str, model_input: str,
+                    folded: bool = False) -> tuple[list[Occurrence], float] | None:
         """Every n-gram occurrence in model_input with its share, plus the total log-odds.
 
         Returns None when the n-grams generated here do not reproduce the pipeline's own
-        counts for `url`, so that no explanation is shown rather than a wrong one.
+        counts for `url` (for `model_input` itself when `folded`), so that no explanation is
+        shown rather than a wrong one.
         """
         min_n, max_n = self._ngram_range
         spans = [(i, i + n) for n in range(min_n, max_n + 1)
                  for i in range(len(model_input) - n + 1)]
         grams = [model_input[s:e] for s, e in spans]
-        counts = self._vectorizer.transform([url])
+        counts = (self._input_vectorizer.transform([model_input]) if folded
+                  else self._vectorizer.transform([url]))
         if not grams:
             return ([], self.intercept) if counts.nnz == 0 else None
         unique = sorted(set(grams))
@@ -161,11 +174,13 @@ class NgramExplainer:
                        for (s, e), g in zip(spans, grams)]
         return occurrences, self.intercept + sum(contribution.values())
 
-    def signals(self, url: str, analysed: str, model_input: str, limit: int) -> list[dict]:
-        """Up to `limit` merged n-gram segments as signal dicts (without ids)."""
+    def signals(self, url: str, analysed: str, model_input: str, limit: int,
+                folded: bool = False) -> list[dict]:
+        """Up to `limit` merged n-gram segments as signal dicts (without ids). With `folded`,
+        model_input is the homoglyph defence's input and every offset is null."""
         if limit <= 0:
             return []
-        result = self.occurrences(url, model_input)
+        result = self.occurrences(url, model_input, folded)
         if result is None:
             logger.warning("n-gram counts did not match the pipeline; no n-gram signals")
             return []
@@ -182,17 +197,21 @@ class NgramExplainer:
                     segments.append((start, end, weight))
         segments.sort(key=lambda t: (-abs(t[2]), t[0], t[1]))
 
+        if folded:
+            return [self._signal(None, BRAND_MASK in model_input[start:end], analysed, weight)
+                    for start, end, weight in segments[:limit]]
         alignment = align(analysed, model_input)
-        return [self._signal(alignment, analysed, start, end, weight)
-                for start, end, weight in segments[:limit]]
+        signals = []
+        for start, end, weight in segments[:limit]:
+            mapped = map_span(alignment, start, end)
+            has_brand = (mapped is not None and alignment.mask_index is not None
+                         and start <= alignment.mask_index < end)
+            signals.append(self._signal(mapped, has_brand, analysed, weight))
+        return signals
 
     @staticmethod
-    def _signal(alignment: Alignment, analysed: str, start: int, end: int,
-                weight: float) -> dict:
+    def _signal(mapped: Span | None, has_brand: bool, analysed: str, weight: float) -> dict:
         phishing = weight > 0
-        mapped = map_span(alignment, start, end)
-        has_brand = (mapped is not None and alignment.mask_index is not None
-                     and start <= alignment.mask_index < end)
         leaning = "phishing" if phishing else "legitimate"
         if has_brand:
             explanation = ("This part includes an official brand domain, which the model reads "

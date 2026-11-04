@@ -6,49 +6,54 @@
       "expected": 200,
       "status": 200,
       "ok": true,
-      "seconds": 0.0111
+      "seconds": 0.0578
     },
     {
       "case": "8193 bytes, Content-Length",
       "expected": 413,
       "status": 413,
       "ok": true,
-      "seconds": 0.0021
+      "seconds": 0.0018
     },
     {
       "case": "8192 bytes, chunked (no Content-Length)",
       "expected": 200,
       "status": 200,
       "ok": true,
-      "seconds": 0.0068
+      "seconds": 0.0046
     },
     {
       "case": "8193 bytes, chunked (no Content-Length)",
       "expected": 413,
       "status": 413,
       "ok": true,
-      "seconds": 0.0023
+      "seconds": 0.0025
     },
     {
       "case": "declared 100 MB, no body sent",
       "expected": 413,
       "status": 413,
       "ok": true,
-      "seconds": 0.013
+      "seconds": 0.0011
     }
   ],
   "burst": {
     "requests": 40,
     "status_counts": {
-      "200": 31,
-      "503": 9
+      "200": 9,
+      "429": 15,
+      "503": 16
     },
     "retry_after_values_on_503": [
       "1"
     ],
     "all_503_have_retry_after": true,
+    "retry_after_values_on_429": [
+      "2"
+    ],
+    "all_429_have_retry_after": true,
     "unexpected_statuses": [],
-    "wall_seconds": 1.3148,
-    "p50_ok_seconds": 0.802
+    "wall_seconds": 0.2984,
+    "p50_ok_seconds": 0.1975
   }
 }

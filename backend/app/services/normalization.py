@@ -1,4 +1,5 @@
-"""Homoglyph defence for the P2 evasion experiment. NOT used by the v1 API.
+"""Homoglyph defence from the P2 evasion experiment, used by the API when HOMOGLYPH_DEFENCE
+is on (the default; see ModelService.analyze).
 
 The defence is preprocessing only (no retraining): before the A2 model sees a URL,
 
@@ -20,7 +21,7 @@ The defence is preprocessing only (no retraining): before the A2 model sees a UR
 Folding rewrites the URL (the Cyrillic word "сор" becomes Latin "cop"), so legitimate
 non-Latin URLs can change meaning for the model; the experiment measures that on benign
 URLs. Folded text can also differ in length, so these model inputs have no offset mapping
-to analysed_url, which is one reason the defence is not wired into the API.
+to analysed_url; the API returns null n-gram offsets for them.
 """
 import unicodedata
 

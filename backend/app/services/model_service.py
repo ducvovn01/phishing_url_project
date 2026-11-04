@@ -26,6 +26,7 @@ from sklearn.pipeline import Pipeline
 from app.a2 import PROJECT_ROOT, preprocess_url, preprocess_url_masked
 from app.config import DEFAULT_MANIFEST, MAX_SIGNALS
 from app.services.explanations import NgramExplainer
+from app.services.normalization import PreprocessedScorer, defended_model_input
 from app.services.rules import rule_signals
 
 MAX_NGRAM_SIGNALS = 5
@@ -134,7 +135,8 @@ class Analysis:
     threshold: float
     signals: list[dict]
     model: dict
-    # What the model actually saw (brand label masked); not part of the API response.
+    # What the model actually saw (brand label masked, folded under the homoglyph defence);
+    # not part of the API response.
     model_input: str = field(repr=False)
 
 
@@ -148,6 +150,7 @@ class ModelService:
         self._phishing_column = list(pipeline.named_steps["model"].classes_).index(
             manifest.phishing_class)
         self._explainer = NgramExplainer(pipeline)
+        self._scorer = PreprocessedScorer(pipeline)
 
     @classmethod
     def from_manifest(cls, manifest_path: Path = DEFAULT_MANIFEST) -> "ModelService":
@@ -166,19 +169,31 @@ class ModelService:
             return np.empty(0)
         return np.asarray(self.pipeline.predict_proba(urls))[:, self._phishing_column]
 
-    def analyze(self, url: str) -> Analysis:
-        """Score one URL and explain the score; `url` is the validated, trimmed input."""
+    def analyze(self, url: str, homoglyph_defence: bool = False) -> Analysis:
+        """Score one URL and explain the score; `url` is the validated, trimmed input.
+
+        Without `homoglyph_defence` this is exactly the scripts/predict.py score. With it, a
+        URL that folding changes is scored on normalization.defended_model_input() instead;
+        analysed_url and the rule signals still use the unfolded text, and the n-gram
+        signals get null offsets because they no longer map onto analysed_url.
+        """
         submitted = url.strip()
         analysed = preprocess_url(submitted)
         model_input = preprocess_url_masked(submitted)
-        probability = float(self.phishing_probability([submitted])[0])
+        defended = defended_model_input(submitted) if homoglyph_defence else model_input
+        folded = defended != model_input
+        if folded:
+            model_input = defended
+            probability = float(self._scorer.phishing_probability([defended])[0])
+        else:
+            probability = float(self.phishing_probability([submitted])[0])
         if not math.isfinite(probability) or not 0.0 <= probability <= 1.0:
             raise RuntimeError("model returned an invalid probability")
         label, confidence, trust_score = decide(probability, self.threshold)
 
         rules = rule_signals(analysed)
         ngram_limit = min(MAX_NGRAM_SIGNALS, MAX_SIGNALS - len(rules))
-        ngrams = self._explainer.signals(submitted, analysed, model_input, ngram_limit)
+        ngrams = self._explainer.signals(submitted, analysed, model_input, ngram_limit, folded)
         signals = [{"id": f"ngram-{i}", **s} for i, s in enumerate(ngrams, 1)] + rules
 
         return Analysis(

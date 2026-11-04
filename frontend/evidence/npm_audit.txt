@@ -1,0 +1,4 @@
+# npm audit (npm 11.19.0, Node v26.8.1), run 2026-11-03 on Windows 11
+# command (from frontend/): npm audit
+# exit code: 0 (no vulnerabilities)
+found 0 vulnerabilities

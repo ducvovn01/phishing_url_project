@@ -1,7 +1,7 @@
 {
   "phases": {
     "before": {
-      "recorded_at": "2026-10-27T01:50:11+00:00",
+      "recorded_at": "2026-11-02T13:32:23+00:00",
       "target": "http://127.0.0.1:8000",
       "expected_server": "limiter off, RATE_LIMIT_ENABLED=false",
       "passed": true,
@@ -9,8 +9,8 @@
       "burst": {
         "requests": 20,
         "status_counts": {
-          "200": 15,
-          "503": 5
+          "200": 2,
+          "503": 18
         },
         "retry_after_on_503": [
           "1"
@@ -99,12 +99,12 @@
         ]
       },
       "recovery": null,
-      "model_runs": 80,
+      "model_runs": 67,
       "requests_sent": 85,
       "sample_429": null
     },
     "after": {
-      "recorded_at": "2026-10-27T01:50:31+00:00",
+      "recorded_at": "2026-11-02T13:32:31+00:00",
       "target": "http://127.0.0.1:8000",
       "expected_server": "limiter on, default settings",
       "passed": true,
@@ -112,8 +112,8 @@
       "burst": {
         "requests": 20,
         "status_counts": {
-          "200": 7,
-          "503": 13
+          "200": 2,
+          "503": 18
         },
         "retry_after_on_503": [
           "1"
@@ -127,7 +127,6 @@
         },
         "first_429_at": 11,
         "retry_after_on_429": [
-          "1",
           "2"
         ],
         "statuses_in_order": [
@@ -206,21 +205,21 @@
         ]
       },
       "recovery": {
-        "waited_seconds": 1,
+        "waited_seconds": 2,
         "status": 200
       },
-      "model_runs": 18,
+      "model_runs": 13,
       "requests_sent": 86,
       "sample_429": {
         "status": 429,
         "retry_after": "2",
-        "x_request_id": "2f67b6e7",
+        "x_request_id": "7665693a",
         "body": {
           "error": {
             "code": "rate_limited",
             "message": "Too many requests. Please wait a moment and try again.",
             "details": [],
-            "request_id": "2f67b6e7"
+            "request_id": "7665693a"
           }
         }
       }

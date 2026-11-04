@@ -1,5 +1,6 @@
 """GET /health and POST /analyze."""
 import threading
+import time
 from dataclasses import asdict
 
 from fastapi import APIRouter, Depends, Request
@@ -15,10 +16,12 @@ router = APIRouter()
 class ConcurrencyGuard:
     """Non-blocking cap on in-flight analyses in this process. Over the cap a request is
     refused at once (503) instead of queueing, so a burst cannot pile up work. With several
-    worker processes the total capacity is workers x limit."""
+    worker processes the total capacity is workers x limit. With enforced=False (demo only)
+    nothing is refused, but in-flight requests are still counted."""
 
-    def __init__(self, limit: int):
+    def __init__(self, limit: int, enforced: bool = True):
         self.limit = limit
+        self.enforced = enforced
         self._in_flight = 0
         self._lock = threading.Lock()
 
@@ -28,7 +31,7 @@ class ConcurrencyGuard:
 
     def try_acquire(self) -> bool:
         with self._lock:
-            if self._in_flight >= self.limit:
+            if self.enforced and self._in_flight >= self.limit:
                 return False
             self._in_flight += 1
             return True
@@ -36,6 +39,13 @@ class ConcurrencyGuard:
     def release(self) -> None:
         with self._lock:
             self._in_flight -= 1
+
+
+def _analyze_in_worker(service, url: str, delay_seconds: float, homoglyph_defence: bool):
+    """Runs in the worker thread, so the demo delay never blocks the event loop."""
+    if delay_seconds:
+        time.sleep(delay_seconds)
+    return service.analyze(url, homoglyph_defence=homoglyph_defence)
 
 
 def _error_doc(description: str, code: str, message: str, details: list[dict] | None = None,
@@ -127,7 +137,9 @@ async def analyze(payload: AnalyzeRequest, request: Request) -> AnalyzeResponse:
     try:
         # run_in_threadpool waits for the worker thread even if the client disconnects, so
         # the slot is released only once the analysis has really finished.
-        analysis = await run_in_threadpool(state.model_service.analyze, payload.url)
+        analysis = await run_in_threadpool(_analyze_in_worker, state.model_service, payload.url,
+                                           state.settings.demo_analyze_delay_ms / 1000,
+                                           state.settings.homoglyph_defence)
     finally:
         state.guard.release()
     fields = asdict(analysis)

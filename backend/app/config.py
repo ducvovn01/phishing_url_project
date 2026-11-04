@@ -26,8 +26,9 @@ class ConfigError(ValueError):
 class Settings:
     manifest_path: Path = DEFAULT_MANIFEST
     cors_origins: tuple[str, ...] = ("http://localhost:5173",)
-    # In-flight /analyze requests per worker process; more are refused with 503.
-    max_concurrency: int = 4
+    # In-flight /analyze requests per worker process; more are refused with 503. The default
+    # of 2 comes from the real-inference cap sweep (README, "Concurrency cap sweep").
+    max_concurrency: int = 2
     docs_enabled: bool = True
     # Per-client limit on /analyze (contract section 5.1): a burst of up to
     # rate_limit_requests, given back at rate_limit_requests per rate_limit_window_seconds.
@@ -35,6 +36,16 @@ class Settings:
     rate_limit_enabled: bool = True
     rate_limit_requests: int = 30
     rate_limit_window_seconds: int = 60
+    # Demo only, for the before/after denial of service evidence. Off, the 503 cap never
+    # refuses (in-flight requests are still counted) and the 413 body limit is not installed.
+    concurrency_cap_enabled: bool = True
+    body_limit_enabled: bool = True
+    # Demo only: every /analyze sleeps this long in its worker thread while holding its
+    # concurrency slot, a stand-in for an expensive model call.
+    demo_analyze_delay_ms: int = 0
+    # Detection evasion defence (P2, experiments/FINDINGS.md): score the folded look-alike
+    # text instead of the raw one. Turning it off is for the before/after demo only.
+    homoglyph_defence: bool = True
 
 
 def _parse_origins(raw: str) -> tuple[str, ...]:
@@ -91,4 +102,14 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
     if "RATE_LIMIT_WINDOW_SECONDS" in env:
         kwargs["rate_limit_window_seconds"] = _parse_int("RATE_LIMIT_WINDOW_SECONDS",
                                                          env["RATE_LIMIT_WINDOW_SECONDS"], 1, 3600)
+    if "CONCURRENCY_CAP_ENABLED" in env:
+        kwargs["concurrency_cap_enabled"] = _parse_bool("CONCURRENCY_CAP_ENABLED",
+                                                        env["CONCURRENCY_CAP_ENABLED"])
+    if "BODY_LIMIT_ENABLED" in env:
+        kwargs["body_limit_enabled"] = _parse_bool("BODY_LIMIT_ENABLED", env["BODY_LIMIT_ENABLED"])
+    if "DEMO_ANALYZE_DELAY_MS" in env:
+        kwargs["demo_analyze_delay_ms"] = _parse_int("DEMO_ANALYZE_DELAY_MS",
+                                                     env["DEMO_ANALYZE_DELAY_MS"], 0, 5000)
+    if "HOMOGLYPH_DEFENCE" in env:
+        kwargs["homoglyph_defence"] = _parse_bool("HOMOGLYPH_DEFENCE", env["HOMOGLYPH_DEFENCE"])
     return Settings(**{**settings.__dict__, **kwargs})

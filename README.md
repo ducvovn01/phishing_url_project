@@ -1,164 +1,329 @@
-# Phishing URL Detector (COS30049, Assignment 2)
+# Phishing URL Detector (COS30049, Assignment 3)
 
-Machine learning code for a phishing URL detector. A URL string goes in; a phishing probability comes out. Everything is computed from the URL text alone (no page fetching, no WHOIS, no blocklist or reputation calls), so scoring works fully offline once the models are trained.
+A web application that scores the text of a URL as phishing or legitimate. A React client
+sends the URL to a FastAPI service, which scores it with the char n-gram model trained in
+Assignment 2 and returns a verdict, a trust score and the parts of the URL that pushed the
+score up or down.
 
-## 1. Contents
+Offline constraint: the URL is only ever treated as text. The backend never fetches the
+page, resolves DNS, runs WHOIS or calls a reputation service.
 
-| Path | What it holds |
+## Contents of the ZIP
+
+| Folder or file | What it holds |
 |---|---|
-| `scripts/` | The pipeline: data fetching and cleaning, feature extraction, model training, comparison and `predict.py` (run order in section 4). |
-| `scripts/analysis/` | Stand-alone analyses and checks used in the report: EDA, phishing-only clustering, error analysis, unseen-source test and the figures for them. |
-| `data/processed/combined_dataset.csv` | The cleaned, deduplicated dataset: `url`, `label` (1 = phishing, 0 = legitimate), `source`. 1,607,776 rows. |
-| `data/processed/features.parquet` | The feature table built from it (the 23 model features, plus `url`, `label`, `source`, `domain`, `matched_brand`, and the `has_protocol` / `uses_https` flags, which are kept for the ablation but never used as model inputs). This is what every feature-based model trains on. |
-| `data/reference/` | The brand list used for the brand-similarity features (`brand_list.py`, `tranco_top1000.csv`). |
-| `data/analysis/` | Written reports (`*.md`), numbers (`*.json`) and `plots/` produced by the scripts. |
-| `models/` | The six trained models (`*.joblib`). |
-| `data/test_urls.csv` | A small hand-labelled set of URLs for a quick sanity check. |
-| `requirements.txt` | Python dependencies. |
+| `backend/` | The FastAPI service (`app/`), its tests (`tests/`), the security evidence scripts (`scripts/`), the evidence files (`evidence/`), the look-alike experiment (`experiments/`) and `backend/README.md` |
+| `frontend/` | The React and Vite client (`src/`), `package.json`, `package-lock.json`, the npm audit evidence (`evidence/`) and `frontend/README.md` |
+| `docs/` | API contract, threat model, misconfiguration review, frontend security, accessibility, and the Assignment 2 pipeline guide (`model-pipeline.md`) |
+| `models/` | The trained Assignment 2 models (`*.joblib`); the API serves `char_ngram.joblib` |
+| `data/` | The reference brand list (`reference/`), the analysis reports (`analysis/`) and `test_urls.csv` |
+| `scripts/` | The Assignment 2 pipeline: data preparation, feature extraction, training and `predict.py` |
+| `requirements.txt` | Python dependencies of the Assignment 2 pipeline |
 
-`data/processed/duplicates_removed.csv` (the rows dropped by deduplication) and `data/processed/features.csv` (a CSV copy of `features.parquet`) are not used by any final model; they are kept only for inspection.
+Left out of the ZIP: `node_modules/`, `.venv/`, `dist/`, every `__pycache__/` folder, and the four
+large files in `data/processed/`: `duplicates_removed.csv` (164 MB), `features.csv` (258 MB),
+`combined_dataset.csv` (84 MB) and `features.parquet` (92 MB). The API needs only `models/`,
+`scripts/` and `data/reference/` (`tranco_top1000.csv` and `brand_list.py`) at run time, and none
+of the backend tests reads the four files.
 
-## 2. Set up the environment
+Three jobs do need `combined_dataset.csv` and `features.parquet`: rebuilding
+`backend/app/data/rule_stats.json` (`backend/scripts/build_rule_stats.py`), re-running
+`backend/experiments/homoglyph_evasion.py`, and retraining the model. Their results are in the ZIP
+(`rule_stats.json`, `backend/experiments/results/` and `models/`). To regenerate the two files,
+follow [docs/model-pipeline.md](docs/model-pipeline.md), which downloads the source datasets and
+needs Kaggle credentials.
 
-Python 3.11 or newer is needed.
+The model file is `models/char_ngram.joblib` at the top of the ZIP, not inside `backend/`. The
+backend finds it through `backend/model_manifest.json` and loads it only if its SHA-256 matches
+the manifest.
 
-```bash
-conda create -n phishing-url python=3.11 -y
-conda activate phishing-url
-pip install -r requirements.txt
-```
-
-`torch` (only needed for the autoencoder) is the largest download. The CPU build is enough:
-
-```bash
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-```
-
-All commands below are run from the project root, with the environment active.
-
-## 3. Raw data (only needed to rebuild the dataset from scratch)
-
-If you only want to retrain or use the models, skip to section 4, step 3: the processed dataset is already in `data/processed/`.
-
-The four source datasets are not stored in the repository (`data/raw/` is git-ignored). Create a `.env` file in the project root with your own credentials:
+## Architecture
 
 ```
-HF_TOKEN=<Hugging Face access token; semihGuner2002/PhishingURLsDataset is a gated dataset, accept its terms first>
-KAGGLE_USERNAME=<your Kaggle username>
-KAGGLE_KEY=<your Kaggle API key>
+ +--------------------+        HTTP, JSON         +------------------------------+
+ | Browser            |  POST /analyze {"url"}    | FastAPI backend              |
+ | React client       | ------------------------> | uvicorn, port 8000           |
+ | Vite, port 5173    | <------------------------ | middleware, validation,      |
+ +--------------------+  verdict, trust score,    | concurrency cap              |
+                         signals                  +--------------+---------------+
+                                                                 |
+                                                                 v
+                                                  +------------------------------+
+                                                  | ModelService                 |
+                                                  | models/char_ngram.joblib     |
+                                                  | SHA-256 checked against      |
+                                                  | backend/model_manifest.json  |
+                                                  +------------------------------+
 ```
 
-| Source | Where it comes from |
-|---|---|
-| Mitake/PhishingURLsANDBenignURLs | Hugging Face |
-| semihGuner2002/PhishingURLsDataset | Hugging Face (gated) |
-| harisudhan411/phishing-and-legitimate-urls | Kaggle |
-| PhiUSIIL Phishing URL Dataset | UCI Machine Learning Repository |
+The full data flow, with the middleware order and the trust boundary, is in
+[docs/threat-model.md](docs/threat-model.md).
 
-## 4. Run the pipeline
+## Requirements and pinned versions
 
-```bash
-# 1. Download the four raw datasets into data/raw/ (needs the .env above and internet)
-python scripts/fetch_datasets.py
+- Python 3.12.10 (the version in `backend/evidence/pip_audit.txt`; `backend/README.md` says
+  it was tested on Windows 11).
+- Node v26.8.1 and npm 11.19.0 (the versions in `frontend/evidence/npm_audit.txt`).
+  `frontend/package.json` allows Node `^22.22.2 || ^24.15.0 || >=26.0.0`.
 
-# 2. Convert each source to one schema (url, label, source), fix label direction,
-#    remove malformed rows and duplicates.
-#    Writes data/processed/combined_dataset.csv and duplicates_removed.csv
-python scripts/normalize_datasets.py
-
-# 3. Build the features: 21 base URL features plus the two brand-similarity features.
-#    Writes data/processed/features.parquet (and features.csv)
-python scripts/extract_features.py
-
-# 4. (optional) Exploratory data analysis. Writes data/analysis/eda_report.md and plots/
-python scripts/analysis/analyze_dataset.py
-python scripts/analysis/make_typosquat_plots.py
-
-# 5. Train the models. Every script uses the same domain-grouped 80/20 split
-#    (no registrable domain appears in both train and test).
-python scripts/train_model.py          # Logistic Regression + LightGBM  -> models/logreg.joblib, lightgbm.joblib
-python scripts/train_char_ngram.py     # char n-gram + Logistic Regression -> models/char_ngram.joblib (selected model)
-python scripts/clustering_model.py     # K-Means and HDBSCAN             -> models/kmeans.joblib, hdbscan.joblib
-python scripts/autoencoder_model.py    # autoencoder anomaly detector    -> models/autoencoder.joblib
-
-# 6. Compare all six models on the same test split. Writes data/analysis/model_comparison.md
-python scripts/compare_models.py
-```
-
-Each training script writes its own report to `data/analysis/` (`model_report.md`, `char_ngram_report.md`, `clustering_report.md`, `autoencoder_report.md`).
-
-### Extra analyses used in the report
-
-```bash
-# Clustering inside one class: K-Means on the phishing URLs only (no labels used),
-# with each cluster described by its feature profile and example URLs.
-python scripts/analysis/cluster_phishing.py          # -> data/analysis/phishing_clusters.json
-python scripts/analysis/plot_phishing_clusters.py    # -> data/analysis/plots/phishing_cluster_profile.png
-
-# Error analysis of the selected model: confusion matrix, error rates by source and
-# URL shape, and a random sample of 40 false positives and 40 false negatives.
-python scripts/analysis/error_analysis.py            # -> data/analysis/error_analysis.json, error_samples.csv
-python scripts/analysis/plot_error_figures.py      # -> plots/ngram_confusion_matrix.png, ngram_weights.png (run after error_analysis)
-
-# Harder test: train on three sources, test on the fourth (run once per source).
-python scripts/analysis/leave_one_source_out.py phiusiil          # -> data/analysis/loso_phiusiil.json
-python scripts/analysis/leave_one_source_out.py harisudhan411
-python scripts/analysis/leave_one_source_out.py mitake
-python scripts/analysis/leave_one_source_out.py semihguner
-```
-
-`leave_one_source_out.py` trains on a 600,000-row sample so that it fits in 8 GB of memory.
-
-## 5. Use a trained model to score URLs
-
-```bash
-# One or more URLs on the command line (default model: lightgbm)
-python scripts/predict.py https://example.com paypal-login-verify.xyz/account
-
-# The selected model, with a custom threshold
-python scripts/predict.py --model char_ngram --threshold 0.5 paypa1-secure-login.top
-
-# A text file with one URL per line
-python scripts/predict.py --file urls.txt --model char_ngram
-```
-
-`--model` accepts `lightgbm`, `logreg`, `char_ngram`, `kmeans`, `hdbscan` or `autoencoder`. The output has one row per URL: `url`, `phishing_probability`, `is_phishing`.
-
-From Python:
-
-```python
-import sys
-sys.path.insert(0, "scripts")
-from predict import PhishingDetector
-from train_model import MODELS_DIR
-
-detector = PhishingDetector(MODELS_DIR / "char_ngram.joblib")
-print(detector.predict(["https://example.com", "paypa1-login.xyz/verify"]))
-```
-
-To check every saved model against the hand-labelled URLs in `data/test_urls.csv`:
-
-```bash
-python scripts/analysis/check_test_urls.py          # summary plus the rows some model got wrong
-python scripts/analysis/check_test_urls.py --all    # every row
-```
-
-## 6. Models
-
-| Model | Input | Script |
+| Package | Version | Pinned in |
 |---|---|---|
-| Char n-gram + Logistic Regression (selected) | URL text, 3-5 character n-grams, hashed, TF-IDF | `train_char_ngram.py` |
-| LightGBM | 23 URL features | `train_model.py` |
-| Logistic Regression | 23 URL features | `train_model.py` |
-| K-Means, HDBSCAN | 20 numeric URL features | `clustering_model.py` |
-| Autoencoder | 20 numeric URL features, trained on legitimate URLs only | `autoencoder_model.py` |
+| FastAPI | 0.143.3 | `backend/requirements.txt` |
+| Uvicorn | 0.54.0 | `backend/requirements.txt` |
+| Pydantic | 2.14.1 | `backend/requirements.txt` |
+| scikit-learn | 1.9.1 | `backend/requirements.txt` (the model was saved with it; the API refuses any other version) |
+| joblib | 1.6.0 | `backend/requirements.txt` |
+| React | 19.3.1 | `frontend/package.json` |
+| MUI (`@mui/material`) | 9.5.0 | `frontend/package.json` |
+| MUI X Charts (`@mui/x-charts`) | 9.16.0 | `frontend/package.json` |
+| axios | 1.20.0 | `frontend/package.json` |
+| Vite | 8.3.4 | `frontend/package.json` (dev dependency) |
 
-## 7. Notes
+## Quick start
 
-- Random seeds are fixed (`RANDOM_STATE = 42` in `scripts/train_model.py`), so re-running a script on the same data reproduces its numbers.
-- Feature extraction uses `tldextract` with `suffix_list_urls=()`, so it uses the public-suffix snapshot bundled with the package and never touches the network.
-- Run every script from the project root as shown above. The scripts in `scripts/` import each other (`extract_features`, `train_model`), and the ones in `scripts/analysis/` add `scripts/` to the import path themselves.
+Backend, from `backend/` (from `backend/README.md`):
 
-## 8. Assignment 3 backend
+```bash
+cd backend
+python -m venv .venv
+# Windows:      .venv\Scripts\activate
+# macOS/Linux:  source .venv/bin/activate
+python -m pip install -r requirements.txt        # runtime only
+python -m pip install -r requirements-dev.txt    # + tests and experiments
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers --no-server-header --no-access-log
+```
 
-The FastAPI service that serves the char n-gram model (`POST /analyze`, `GET /health`) is in `backend/`. See [backend/README.md](backend/README.md) for setup, run and test commands.
+Check it: `curl http://localhost:8000/health` returns `{"status":"ok","model_loaded":true}`.
+
+Frontend, from `frontend/` in a second terminal (from `frontend/README.md`):
+
+```sh
+npm ci          # install exact versions from package-lock.json
+npm run dev     # dev server on http://localhost:5173
+```
+
+Open <http://localhost:5173> in a browser. With no `.env` file the client talks to
+`http://localhost:8000`.
+
+## Running the tests
+
+```bash
+# backend, from backend/ with the venv active (needs requirements-dev.txt)
+python -m pytest
+
+# frontend, from frontend/
+npm run lint
+npm test
+```
+
+Results on the final code: backend 204 passed, 0 failed (Python 3.12.10); frontend 23 test
+files and 318 tests passed, 0 failed.
+
+## Using the app
+
+Type a URL into the form and submit it. The page shows the verdict, the trust score
+(0 to 100, higher means more likely legitimate), the submitted URL with the parts that
+influenced the score highlighted, a list of signals and a chart of their weights. The
+session page compares the checks made in the current tab; nothing is stored after the tab
+is closed.
+
+- `paypa1-secure-login.top/verify`: the real model output in `docs/api-contract.md`
+  section 3.2 is label `phishing` with trust score 0.
+- `https://en.wikipedia.org/wiki/Phishing`: the legitimate example in
+  `docs/api-contract.md` section 3.5 is label `legitimate` with trust score 99.
+
+## Security
+
+### Threat model
+
+**Who would attack it, and what do they want?**
+
+- A phisher who wants a phishing link to be scored as legitimate. They rewrite the URL text, for
+  example with look-alike letters from other alphabets, so the model no longer recognises it.
+- An anonymous client who wants the service to stop answering real users. They flood `/analyze`,
+  send very large bodies, or keep analyses running so that others wait.
+- Anyone looking for a weakness in the setup rather than the code: a vulnerable dependency, a
+  permissive CORS policy, missing security headers or exposed API documentation.
+
+**What can they actually do?**
+
+The API has two endpoints, `GET /health` and `POST /analyze` (plus `/docs` when it is switched on).
+There are no accounts, no database, no file uploads and no outbound requests, so an attacker has
+two inputs: one URL string per request, and the number of requests. With them they can try to make
+a phishing URL score as legitimate (0.60% of our look-alike variants did before the defence, 0.05%
+after), and they can slow or block other users (with real inference and no defences, all 500
+flood requests were accepted and `/health` took 2104 ms at the 95th percentile). They cannot read
+files, run commands, reach other systems or see other users' data.
+
+**Which risks from the brief apply?**
+
+| Risk | Applies | Why |
+|---|---|---|
+| Denial of service | Yes, marked (Advanced) | Every request runs the model. Defence: per-client rate limit, body limit, URL length cap and a concurrency cap that answers 503. |
+| Misconfiguration and vulnerable dependencies | Yes, marked (Intermediate) | Headers, CORS, documentation and libraries can all be left in an unsafe state. Defence: header and CORS settings, `pip-audit`, `npm audit`, a ZAP scan. |
+| Detection evasion (2.8) | Yes, marked | The phisher's attack above. Defence: fold look-alike characters before scoring. |
+| Unsafe model loading | Yes, not marked | `joblib` can run code hidden in a file. The model's SHA-256 is checked against `backend/model_manifest.json` before it is loaded. |
+| Missing rate limiting | Yes | Built as the first layer of the denial of service defence, not claimed as a separate defence. |
+| Command injection | No | The backend runs no system command. The URL is only ever text. |
+| SSRF | No | The backend never opens, fetches or resolves the submitted URL. A test fails if analysis opens a socket. |
+| SQL injection | No | There is no database. |
+| Unsafe file upload | No | The only input is the JSON body `{"url": ...}`. There is no upload endpoint. |
+| Broken access control | No | There are no accounts or per-user records. |
+
+The full analysis, with evidence numbers and limits, is in
+[docs/threat-model.md](docs/threat-model.md).
+
+### Marked defences and attack
+
+Three items are marked for this assignment: denial of service and misconfiguration (section 2.7),
+and detection evasion (section 2.8).
+
+| Item | What | Where in code | Evidence | How to repeat |
+|---|---|---|---|---|
+| Denial of service (2.7) | Per-client rate limit (429), 8 KB body limit (413), URL length cap, concurrency cap (503, default 2) | `backend/app/rate_limit.py`, `backend/app/middleware.py`, `backend/app/validation.py`, `backend/app/routes.py` | `backend/evidence/rate_limit_before_after.json`, `dos_before_after.json`, `dos_before_after_real.json`, `dos_cap_sweep_real_*.json`, `security_smoke.json` | `backend/README.md` section 7 |
+| Misconfiguration (2.7) | Dependency audits, security headers, CORS pinned, docs switched off in deployment, ZAP scan | `backend/app/middleware.py`, `backend/app/config.py` | `backend/evidence/pip_audit.txt`, `frontend/evidence/npm_audit.txt`, `backend/evidence/security_headers.json`, `backend/evidence/zap_*.json` | `docs/misconfiguration.md` |
+| Detection evasion (2.8) | Look-alike Unicode folded before scoring (NFKC, lowercase, confusables map, brand mask decided on the original host) | `backend/app/services/normalization.py`, `backend/app/services/model_service.py` | `backend/evidence/evasion_before_after.json` | `backend/README.md` section 8 |
+
+Limits: with real inference the service does not keep `/health` under 0.5 s during a
+flood of 100 requests at the default cap of 2 (924.8 ms in `dos_before_after_real.json`).
+The 0.5 s is the team's own target for `/health` during the flood, not a standard;
+only the run with a simulated expensive request passes. The rate limit and the cap are per
+worker process and keyed by socket address. The look-alike defence does not cover
+diacritics, and evasion was already rare without it (0.60% of variants, 0.05% with it).
+The frontend was not scanned by ZAP and its dev server sends no CSP.
+
+## How to reproduce the evidence
+
+Run from `backend/` with the venv active. Each block needs a server started with the
+README command and the switches shown; stop it between phases. The demo switches are for
+the before/after recordings only and must never be set in deployment.
+
+```bash
+# 1. Smoke test of the body limit and a burst, against the default server
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers --no-server-header --no-access-log
+python scripts/security_smoke.py --burst 40 --json-out evidence/security_smoke.json
+
+# 2. Rate limit before/after
+#   BEFORE: PowerShell: $env:RATE_LIMIT_ENABLED="false"    bash: export RATE_LIMIT_ENABLED=false
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers --no-access-log
+python scripts/security/rate_limit_flood.py --phase before
+#   stop, unset RATE_LIMIT_ENABLED (PowerShell: Remove-Item Env:RATE_LIMIT_ENABLED), start again
+python scripts/security/rate_limit_flood.py --phase after
+
+# 3. Denial of service, delay mode
+#   BEFORE: PowerShell: $env:RATE_LIMIT_ENABLED="false"; $env:CONCURRENCY_CAP_ENABLED="false"
+#                       $env:BODY_LIMIT_ENABLED="false"; $env:DEMO_ANALYZE_DELAY_MS="1000"
+#           bash:       export RATE_LIMIT_ENABLED=false CONCURRENCY_CAP_ENABLED=false
+#                       export BODY_LIMIT_ENABLED=false DEMO_ANALYZE_DELAY_MS=1000
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers --no-server-header --no-access-log
+python scripts/security/dos_before_after.py --phase before
+#   stop, unset CONCURRENCY_CAP_ENABLED and BODY_LIMIT_ENABLED (keep the other two), start again
+python scripts/security/dos_before_after.py --phase after
+
+# 4. Denial of service, real mode: the same, but DEMO_ANALYZE_DELAY_MS must NOT be set
+#   before: RATE_LIMIT_ENABLED=false CONCURRENCY_CAP_ENABLED=false BODY_LIMIT_ENABLED=false
+#   after:  RATE_LIMIT_ENABLED=false
+python scripts/security/dos_before_after.py --phase before --expensive real
+python scripts/security/dos_before_after.py --phase after --expensive real
+
+# 5. Concurrency cap sweep with real inference
+#   no cap: RATE_LIMIT_ENABLED=false CONCURRENCY_CAP_ENABLED=false BODY_LIMIT_ENABLED=false
+python scripts/security/dos_before_after.py --phase before --expensive real --json-out evidence/dos_cap_sweep_real_before.json --label "no cap"
+#   cap N: RATE_LIMIT_ENABLED=false ANALYZE_MAX_CONCURRENCY=N (N = 1, 2, 4)
+python scripts/security/dos_before_after.py --phase after --expensive real --max-concurrency N --json-out evidence/dos_cap_sweep_real_capN.json --label "cap N"
+
+# 6. Detection evasion before/after
+#   BEFORE: PowerShell: $env:RATE_LIMIT_ENABLED="false"; $env:HOMOGLYPH_DEFENCE="false"
+#           bash:       export RATE_LIMIT_ENABLED=false HOMOGLYPH_DEFENCE=false
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers --no-server-header --no-access-log
+python scripts/security/evasion_before_after.py --phase before
+#   stop, unset HOMOGLYPH_DEFENCE (keep RATE_LIMIT_ENABLED=false), start again
+python scripts/security/evasion_before_after.py --phase after
+```
+
+The dependency audits, the header check and the ZAP scans are described in
+[docs/misconfiguration.md](docs/misconfiguration.md).
+
+## The model and data
+
+The served model is the Assignment 2 char n-gram model: hashed 3 to 5 character n-grams,
+TF-IDF and logistic regression, saved as `models/char_ngram.joblib`. It was trained on four
+phishing URL datasets, combined and deduplicated into 1,607,776 rows, with a
+domain-grouped 80/20 split so that no registrable domain is in both training and test data.
+The backend loads it only after its SHA-256 matches `backend/model_manifest.json` and
+reads the decision threshold (0.5) from the saved bundle. The model sees only the URL text.
+The training pipeline and its commands are in
+[docs/model-pipeline.md](docs/model-pipeline.md).
+
+## Repository layout
+
+```
+.
+├── backend/          FastAPI service, tests, security scripts, evidence, experiment
+│   ├── app/
+│   ├── evidence/
+│   ├── experiments/
+│   ├── scripts/
+│   └── tests/
+├── frontend/         React and Vite client
+│   ├── evidence/
+│   └── src/
+├── docs/             contract, threat model, security reviews, pipeline guide
+├── models/           trained models (*.joblib)
+├── data/             processed data, reference lists, analysis reports
+├── scripts/          Assignment 2 pipeline
+├── requirements.txt  Assignment 2 Python dependencies
+└── README.md
+```
+
+## Team
+
+| Name | Student ID | Role |
+|---|---|---|
+| Quang Phu Duc Vo | 105739480 | Team leader; model and backend (the FastAPI service, the per-client rate limiter) |
+| Vinh Nghiem | 105282913 | Frontend; project management (WBS, timeline, risk register) |
+| Lachlan Rouse | 105348886 | Cybersecurity (threat model, security defences and evidence) |
+
+Tutor: Jianwen. Group 2, Session 11.
+
+## Use of generative AI
+
+This statement is made on behalf of the whole team, and it applies to all three members.
+
+Tools: Claude Code and Claude (Anthropic).
+
+What they were used for:
+
+- Code: Claude Code helped write parts of the backend, the frontend, the tests and the security
+  evidence scripts. We gave it code, test results and error messages and asked for specific
+  changes. It was told not to run git commands.
+- Documents and messages: Claude helped draft the documents in `docs/` and this README from the
+  files and evidence in the repository, and drafted code review comments, pull request
+  descriptions and messages to teammates.
+
+How the output was checked:
+
+- The team read every diff, ran the tests, and committed every change by hand.
+- For each code review, every issue was checked in the code before it was raised, and a team
+  member wrote and posted the reviews.
+- The numbers in the documents come from the evidence files in `backend/evidence/` and
+  `frontend/evidence/`.
+
+## References
+
+- Christie, T. and Trylesinski, M. (n.d.) *Uvicorn* (version 0.54.0) [Computer program]. Available at: https://uvicorn.dev/ (Accessed: November 2026).
+- Colvin, S. et al. (n.d.) *Pydantic* (version 2.14.1) [Computer program]. Available at: https://github.com/pydantic/pydantic (Accessed: November 2026).
+- harisudhan411 (n.d.) *Phishing and legitimate URLs* [Dataset]. Kaggle. Available at: https://www.kaggle.com/datasets/harisudhan411/phishing-and-legitimate-urls (Accessed: September 2026).
+- Mitake (n.d.) *PhishingURLsANDBenignURLs* [Dataset]. Hugging Face. Available at: https://huggingface.co/datasets/Mitake/PhishingURLsANDBenignURLs (Accessed: September 2026).
+- MUI Team (n.d.) *Material UI* (version 9.5.0) [Computer program]. Available at: https://mui.com/material-ui/ (Accessed: November 2026).
+- MUI Team (n.d.) *MUI X Charts* (version 9.16.0) [Computer program]. Available at: https://mui.com/x/react-charts/ (Accessed: November 2026).
+- Pedregosa, F. et al. (2011) 'Scikit-learn: machine learning in Python', *Journal of Machine Learning Research*, 12, pp. 2825-2830. (Version 1.9.1 is the one pinned in `backend/requirements.txt`.)
+- Prasad, A. and Chandra, S. (2024) *PhiUSIIL phishing URL dataset* [Dataset]. UCI Machine Learning Repository. Available at: https://archive.ics.uci.edu/dataset/967/phiusiil+phishing+url+dataset (Accessed: September 2026).
+- Ramírez, S. (n.d.) *FastAPI* (version 0.143.3) [Computer program]. Available at: https://fastapi.tiangolo.com/ (Accessed: November 2026).
+- React (n.d.) *React* (version 19.3.1) [Computer program]. Available at: https://react.dev/ (Accessed: November 2026).
+- semihGuner2002 (n.d.) *PhishingURLsDataset* [Dataset]. Hugging Face. Available at: https://huggingface.co/datasets/semihGuner2002/PhishingURLsDataset (Accessed: September 2026).
+- Unicode Consortium (2026) *Unicode Security Mechanisms*, Unicode Technical Standard #39, version 18.0.0 (includes `confusables.txt`, cited in `backend/app/services/normalization.py`). Available at: https://www.unicode.org/reports/tr39/ (Accessed: November 2026).
+- Varoquaux, G. (n.d.) *joblib* (version 1.6.0) [Computer program]. Available at: https://joblib.readthedocs.io (Accessed: November 2026).
+- You, E. (n.d.) *Vite* (version 8.3.4) [Computer program]. Available at: https://vite.dev/ (Accessed: November 2026).
+- Zabriskie, M. (n.d.) *axios* (version 1.20.0) [Computer program]. Available at: https://axios.rest/ (Accessed: November 2026).
+- ZAP Dev Team (2026) *ZAP (Zed Attack Proxy)* (version 2.17.0) [Computer program]. Checkmarx. Available at: https://www.zaproxy.org/ (Accessed: November 2026).

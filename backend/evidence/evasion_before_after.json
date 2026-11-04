@@ -1,0 +1,953 @@
+{
+  "phases": {
+    "before": {
+      "recorded_at": "2026-11-02T13:37:55+00:00",
+      "port": 8000,
+      "expected_server": {
+        "HOMOGLYPH_DEFENCE": false,
+        "RATE_LIMIT_ENABLED": false
+      },
+      "detected_defence": {
+        "mode": "off",
+        "base_probability": 0.9999999972982558,
+        "variant_probability": 0.9999999647329706
+      },
+      "repeats": 10,
+      "sample": {
+        "a_bases": 16,
+        "c_bases_per_repeat": 100,
+        "variants_per_repeat": [
+          579,
+          579,
+          579,
+          579,
+          579,
+          579,
+          579,
+          579,
+          579,
+          579
+        ],
+        "benign_urls": 300,
+        "benign_non_ascii": 60,
+        "fingerprint": "370fdb7d0cf535c96dab74a26408edd9febaa5ffeb4e0484eb89b7fc4d54534d"
+      },
+      "passed": true,
+      "problems": [],
+      "statuses": {
+        "attack": {
+          "200": 5790
+        },
+        "benign": {
+          "200": 295,
+          "422": 5
+        }
+      },
+      "summary": {
+        "evasion_rate": {
+          "mean": 0.006,
+          "min": 0.0017,
+          "max": 0.0121,
+          "median": 0.0043
+        },
+        "adaptive_rate": {
+          "mean": 0.0224,
+          "min": 0.0086,
+          "max": 0.0431,
+          "median": 0.0172
+        },
+        "by_strategy": {
+          "cyrillic_one": {
+            "mean": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "median": 0.0
+          },
+          "cyrillic_all": {
+            "mean": 0.0026,
+            "min": 0.0,
+            "max": 0.0086,
+            "median": 0.0
+          },
+          "greek_mixed": {
+            "mean": 0.02,
+            "min": 0.0,
+            "max": 0.0435,
+            "median": 0.0174
+          },
+          "fullwidth": {
+            "mean": 0.0052,
+            "min": 0.0,
+            "max": 0.0086,
+            "median": 0.0086
+          },
+          "dot_diacritics_uncovered": {
+            "mean": 0.0026,
+            "min": 0.0,
+            "max": 0.0086,
+            "median": 0.0
+          }
+        },
+        "benign": {
+          "sent": 300,
+          "refused_by_validation": 5,
+          "flagged": 20,
+          "of": 295,
+          "false_positive_rate": 0.0678,
+          "flagged_non_ascii": 1
+        },
+        "latency_ms": {
+          "attack": {
+            "median": 10.32,
+            "p95": 31.47,
+            "requests": 5790
+          },
+          "benign": {
+            "median": 6.9,
+            "p95": 29.57,
+            "requests": 300
+          }
+        }
+      },
+      "per_repeat": [
+        {
+          "seed": 1,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 7,
+          "evasion_rate": 0.0121,
+          "adaptive_rate": 0.0431,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 1,
+              "of": 116,
+              "rate": 0.0086
+            },
+            "greek_mixed": {
+              "evaded": 5,
+              "of": 115,
+              "rate": 0.0435
+            },
+            "fullwidth": {
+              "evaded": 1,
+              "of": 116,
+              "rate": 0.0086
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            }
+          }
+        },
+        {
+          "seed": 2,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 2,
+          "evasion_rate": 0.0035,
+          "adaptive_rate": 0.0172,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 2,
+              "of": 115,
+              "rate": 0.0174
+            },
+            "fullwidth": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            }
+          }
+        },
+        {
+          "seed": 3,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 2,
+          "evasion_rate": 0.0035,
+          "adaptive_rate": 0.0172,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 2,
+              "of": 115,
+              "rate": 0.0174
+            },
+            "fullwidth": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            }
+          }
+        },
+        {
+          "seed": 4,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 5,
+          "evasion_rate": 0.0086,
+          "adaptive_rate": 0.0345,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 3,
+              "of": 115,
+              "rate": 0.0261
+            },
+            "fullwidth": {
+              "evaded": 1,
+              "of": 116,
+              "rate": 0.0086
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 1,
+              "of": 116,
+              "rate": 0.0086
+            }
+          }
+        },
+        {
+          "seed": 5,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 1,
+          "evasion_rate": 0.0017,
+          "adaptive_rate": 0.0086,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 1,
+              "of": 115,
+              "rate": 0.0087
+            },
+            "fullwidth": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            }
+          }
+        },
+        {
+          "seed": 6,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 1,
+          "evasion_rate": 0.0017,
+          "adaptive_rate": 0.0086,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 1,
+              "of": 115,
+              "rate": 0.0087
+            },
+            "fullwidth": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            }
+          }
+        },
+        {
+          "seed": 7,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 2,
+          "evasion_rate": 0.0035,
+          "adaptive_rate": 0.0086,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 0,
+              "of": 115,
+              "rate": 0.0
+            },
+            "fullwidth": {
+              "evaded": 1,
+              "of": 116,
+              "rate": 0.0086
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 1,
+              "of": 116,
+              "rate": 0.0086
+            }
+          }
+        },
+        {
+          "seed": 8,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 6,
+          "evasion_rate": 0.0104,
+          "adaptive_rate": 0.0345,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 1,
+              "of": 116,
+              "rate": 0.0086
+            },
+            "greek_mixed": {
+              "evaded": 4,
+              "of": 115,
+              "rate": 0.0348
+            },
+            "fullwidth": {
+              "evaded": 1,
+              "of": 116,
+              "rate": 0.0086
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            }
+          }
+        },
+        {
+          "seed": 9,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 3,
+          "evasion_rate": 0.0052,
+          "adaptive_rate": 0.0172,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 1,
+              "of": 115,
+              "rate": 0.0087
+            },
+            "fullwidth": {
+              "evaded": 1,
+              "of": 116,
+              "rate": 0.0086
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 1,
+              "of": 116,
+              "rate": 0.0086
+            }
+          }
+        },
+        {
+          "seed": 10,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 6,
+          "evasion_rate": 0.0104,
+          "adaptive_rate": 0.0345,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 1,
+              "of": 116,
+              "rate": 0.0086
+            },
+            "greek_mixed": {
+              "evaded": 4,
+              "of": 115,
+              "rate": 0.0348
+            },
+            "fullwidth": {
+              "evaded": 1,
+              "of": 116,
+              "rate": 0.0086
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            }
+          }
+        }
+      ]
+    },
+    "after": {
+      "recorded_at": "2026-11-02T13:39:56+00:00",
+      "port": 8000,
+      "expected_server": {
+        "HOMOGLYPH_DEFENCE": true,
+        "RATE_LIMIT_ENABLED": false
+      },
+      "detected_defence": {
+        "mode": "on",
+        "base_probability": 0.9999999972982558,
+        "variant_probability": 0.9999999972982558
+      },
+      "repeats": 10,
+      "sample": {
+        "a_bases": 16,
+        "c_bases_per_repeat": 100,
+        "variants_per_repeat": [
+          579,
+          579,
+          579,
+          579,
+          579,
+          579,
+          579,
+          579,
+          579,
+          579
+        ],
+        "benign_urls": 300,
+        "benign_non_ascii": 60,
+        "fingerprint": "370fdb7d0cf535c96dab74a26408edd9febaa5ffeb4e0484eb89b7fc4d54534d"
+      },
+      "passed": true,
+      "problems": [],
+      "statuses": {
+        "attack": {
+          "200": 5790
+        },
+        "benign": {
+          "200": 295,
+          "422": 5
+        }
+      },
+      "summary": {
+        "evasion_rate": {
+          "mean": 0.0005,
+          "min": 0.0,
+          "max": 0.0017,
+          "median": 0.0
+        },
+        "adaptive_rate": {
+          "mean": 0.0026,
+          "min": 0.0,
+          "max": 0.0086,
+          "median": 0.0
+        },
+        "by_strategy": {
+          "cyrillic_one": {
+            "mean": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "median": 0.0
+          },
+          "cyrillic_all": {
+            "mean": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "median": 0.0
+          },
+          "greek_mixed": {
+            "mean": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "median": 0.0
+          },
+          "fullwidth": {
+            "mean": 0.0,
+            "min": 0.0,
+            "max": 0.0,
+            "median": 0.0
+          },
+          "dot_diacritics_uncovered": {
+            "mean": 0.0026,
+            "min": 0.0,
+            "max": 0.0086,
+            "median": 0.0
+          }
+        },
+        "benign": {
+          "sent": 300,
+          "refused_by_validation": 5,
+          "flagged": 20,
+          "of": 295,
+          "false_positive_rate": 0.0678,
+          "flagged_non_ascii": 1
+        },
+        "latency_ms": {
+          "attack": {
+            "median": 9.68,
+            "p95": 32.11,
+            "requests": 5790
+          },
+          "benign": {
+            "median": 4.94,
+            "p95": 29.71,
+            "requests": 300
+          }
+        }
+      },
+      "per_repeat": [
+        {
+          "seed": 1,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 0,
+          "evasion_rate": 0.0,
+          "adaptive_rate": 0.0,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 0,
+              "of": 115,
+              "rate": 0.0
+            },
+            "fullwidth": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            }
+          }
+        },
+        {
+          "seed": 2,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 0,
+          "evasion_rate": 0.0,
+          "adaptive_rate": 0.0,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 0,
+              "of": 115,
+              "rate": 0.0
+            },
+            "fullwidth": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            }
+          }
+        },
+        {
+          "seed": 3,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 0,
+          "evasion_rate": 0.0,
+          "adaptive_rate": 0.0,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 0,
+              "of": 115,
+              "rate": 0.0
+            },
+            "fullwidth": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            }
+          }
+        },
+        {
+          "seed": 4,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 1,
+          "evasion_rate": 0.0017,
+          "adaptive_rate": 0.0086,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 0,
+              "of": 115,
+              "rate": 0.0
+            },
+            "fullwidth": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 1,
+              "of": 116,
+              "rate": 0.0086
+            }
+          }
+        },
+        {
+          "seed": 5,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 0,
+          "evasion_rate": 0.0,
+          "adaptive_rate": 0.0,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 0,
+              "of": 115,
+              "rate": 0.0
+            },
+            "fullwidth": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            }
+          }
+        },
+        {
+          "seed": 6,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 0,
+          "evasion_rate": 0.0,
+          "adaptive_rate": 0.0,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 0,
+              "of": 115,
+              "rate": 0.0
+            },
+            "fullwidth": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            }
+          }
+        },
+        {
+          "seed": 7,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 1,
+          "evasion_rate": 0.0017,
+          "adaptive_rate": 0.0086,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 0,
+              "of": 115,
+              "rate": 0.0
+            },
+            "fullwidth": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 1,
+              "of": 116,
+              "rate": 0.0086
+            }
+          }
+        },
+        {
+          "seed": 8,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 0,
+          "evasion_rate": 0.0,
+          "adaptive_rate": 0.0,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 0,
+              "of": 115,
+              "rate": 0.0
+            },
+            "fullwidth": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            }
+          }
+        },
+        {
+          "seed": 9,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 1,
+          "evasion_rate": 0.0017,
+          "adaptive_rate": 0.0086,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 0,
+              "of": 115,
+              "rate": 0.0
+            },
+            "fullwidth": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 1,
+              "of": 116,
+              "rate": 0.0086
+            }
+          }
+        },
+        {
+          "seed": 10,
+          "bases": 116,
+          "variants": 579,
+          "evaded": 0,
+          "evasion_rate": 0.0,
+          "adaptive_rate": 0.0,
+          "by_strategy": {
+            "cyrillic_one": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "cyrillic_all": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "greek_mixed": {
+              "evaded": 0,
+              "of": 115,
+              "rate": 0.0
+            },
+            "fullwidth": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            },
+            "dot_diacritics_uncovered": {
+              "evaded": 0,
+              "of": 116,
+              "rate": 0.0
+            }
+          }
+        }
+      ]
+    }
+  },
+  "description": "Detection evasion (section 2.8): look-alike variants from experiments/results/cases.csv sent to the running API with the homoglyph defence off (before) and on (after), rate limiter off. Written by scripts/security/evasion_before_after.py.",
+  "comparison": {
+    "evasion_rate": {
+      "before_minus_after": {
+        "mean": 0.0056,
+        "min": 0.0017,
+        "max": 0.0121,
+        "median": 0.0035
+      },
+      "helped": 10,
+      "equal": 0,
+      "hurt": 0
+    },
+    "adaptive_rate": {
+      "before_minus_after": {
+        "mean": 0.0198,
+        "min": 0.0,
+        "max": 0.0431,
+        "median": 0.0172
+      },
+      "helped": 9,
+      "equal": 1,
+      "hurt": 0
+    }
+  }
+}

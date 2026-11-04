@@ -14,6 +14,7 @@ SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "Referrer-Policy": "no-referrer",
     "Cache-Control": "no-store",
+    "Cross-Origin-Resource-Policy": "same-origin",
 }
 # The API serves JSON only; Swagger UI needs its CDN script, so /docs is left out.
 API_ONLY_HEADERS = {
