@@ -106,7 +106,7 @@ Done with real key presses in Microsoft Edge 156 against the dev server.
 
 | Step | Works (yes or no) | Notes |
 | --- | --- | --- |
-| Tab to the skip link and use it | Yes | First Tab stop, shows an outline, Enter moves focus to the main content. |
+| Tab to the skip link and use it | Yes, with one caveat | First Tab stop in an automated Tab run on a fresh load, and Enter moves focus to the main content. Checked by hand: focusing the link while the page has focus moves it to `top: 8` and it shows. On one Windows machine (Edge), the first Tab after a reload did not reach it, so the link may not appear until focus is inside the page. |
 | Type a URL, submit with Enter, focus lands on the verdict | Yes | Focus lands on the verdict heading, with a visible outline. |
 | Submit an invalid URL, the error is announced and the field keeps focus | Yes | The field keeps focus, is marked `aria-invalid`, and the message is in the polite live region and the field's `aria-describedby`. Not heard with a screen reader. |
 | Select and deselect a signal from the list with Enter and Space | Yes | Enter selects (`aria-pressed` true), Space deselects, Space selects again. The highlight in the URL follows. |
