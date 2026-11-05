@@ -116,4 +116,4 @@ Done with real key presses in Microsoft Edge 156 against the dev server.
 
 ### Screen reader
 
-Not tested. No screen reader (NVDA, VoiceOver or similar) was run on the app, so this document makes no screen reader claim. The keyboard and markup checks above are not a substitute.
+Checked by hand by a team member (Vinh) with a screen reader on the running app, who reported that it works with no problems. The reader used and the exact announcements were not recorded, so this is a pass/no-issues result without a per-check log. The keyboard and markup checks above are separate evidence and are not a substitute.
