@@ -105,6 +105,9 @@ npm run dev     # dev server on http://localhost:5173
 Open <http://localhost:5173> in a browser. With no `.env` file the client talks to
 `http://localhost:8000`.
 
+API documentation: with the backend running, open <http://localhost:8000/docs>. This is the page
+FastAPI generates; each endpoint has a description and an example request and response.
+
 ## Running the tests
 
 ```bash
