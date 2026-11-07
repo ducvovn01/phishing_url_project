@@ -285,7 +285,7 @@ The training pipeline and its commands are in
 |---|---|---|
 | Quang Phu Duc Vo | 105739480 | Team leader; model and backend (the FastAPI service, the per-client rate limiter) |
 | Vinh Nghiem | 105282913 | Frontend; project management (WBS, timeline, risk register) |
-| Lachlan Rouse | 105348886 | Cybersecurity (threat model, security defences and evidence) |
+| Lachlan Rouse | 105925920 | Cybersecurity (threat model, security defences and evidence) |
 
 Tutor: Jianwen. Group 2, Session 11.
 
